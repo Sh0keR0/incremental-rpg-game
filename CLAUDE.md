@@ -41,7 +41,42 @@ npm run lint:fix # biome check --write (apply safe lint fixes)
   surrounding style by hand.
 - Keep game logic (state, ticks, progression math) separate from DOM rendering
   so it can be unit-tested with Vitest without a browser.
-- Co-locate tests as `*.test.ts` next to the code they cover.
+
+## Testing
+
+Vitest is the test runner. The goal is confidence in the game's *rules and
+math*, not coverage for its own sake — test the logic that would silently
+break the game if it were wrong.
+
+**What to test:**
+
+- **Progression math** — XP curves, level-up thresholds, damage/cost formulas,
+  and any exponential/idle-growth calculations. These are the easiest to get
+  subtly wrong and the most important to pin down.
+- **Tick/state transitions** — applying a game tick should produce the expected
+  next state. Test edge cases: zero/elapsed time, large offline gaps, resource
+  caps, and reaching a win/end condition.
+- **Pure helpers** — formatting (numbers, currency), random rolls (inject the
+  RNG so outcomes are deterministic), save/load serialization round-trips.
+- **Game Logic** - Any game related logic or mechanics should have full test coverage
+
+**What not to test:**
+
+- DOM wiring and rendering glue. Keep that thin; if logic creeps into it,
+  extract the logic into a pure function and test that instead.
+- Vite, Biome, or other third-party behavior.
+
+**Conventions:**
+
+- Co-locate tests as `*.test.ts` next to the code they cover
+  (e.g. `src/combat.ts` → `src/combat.test.ts`).
+- Test pure functions with explicit inputs and outputs — no global state.
+  Pass time, RNG, and config in as arguments rather than reading them inside
+  the function, so tests stay deterministic.
+- Keep one behavior per `test`; name it after the rule being verified
+  (`'levels up when XP crosses the threshold'`), not the function name.
+- Use `vitest run` in CI / one-off checks; `npm test` watches during dev.
+- Add a regression test alongside any bug fix that reaches game logic.
 
 ## Setup status
 
