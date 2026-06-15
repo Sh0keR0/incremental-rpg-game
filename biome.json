@@ -9,15 +9,24 @@
     "includes": ["src/**/*.ts"]
   },
   "formatter": {
-    "enabled": false
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
   },
   "assist": {
     "enabled": false
   },
+  "javascript": {
+    "formatter": {
+      "semicolons": "always",
+      "quoteStyle": "single"
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "preset": "recommended"
     }
   }
 }

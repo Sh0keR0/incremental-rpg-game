@@ -10,7 +10,8 @@ feature count.
 
 - **Platform:** Web — static site, bundled with Vite.
 - **Stack:** HTML, CSS, TypeScript (no UI framework).
-- **Linting:** Biome (linting only — formatting is disabled).
+- **Linting/formatting:** Biome — recommended lint preset + a formatter tuned to
+  the existing style (single quotes, 2-space indent, ~100 width, semicolons).
 - **Testing:** Vitest.
 
 ## Commands
@@ -24,23 +25,71 @@ npm run lint     # biome check (lint only)
 npm run lint:fix # biome check --write (apply safe lint fixes)
 ```
 
+## Architecture
+
+The game runs on a **component-based engine**. Full design and conventions live
+in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — read it before changing the
+engine. The essentials:
+
+- **`GameCore`** (`src/game/GameCore.ts`) — the reusable, game-agnostic engine:
+  owns the loop, creates/holds components, runs the typed event bus, and exposes
+  `getGameComponent<T>` + a `dispatch` transaction.
+- **`createGame`** (`src/game/createGame.ts`) — the game-specific composition that
+  picks components, defines `actions`, builds the typed `GameSnapshot`, and returns
+  the `Game` facade the UI uses.
+- **Components** (`src/game/components/`) — `IGameComponent` classes (Player,
+  Combat) holding logic; they call each other via `getGameComponent`.
+- **`src/ui/`** — DOM only, no game rules. Imports only from the `src/game` barrel
+  and talks to the game through the `Game` facade.
+
+The hard rule still holds: **core game logic and the UI stay strictly separate.**
+The barrel (`src/game/index.ts`) exports only `createGame` + types — never the
+engine, components, or other internals.
+
+Two rules that bite if ignored: components key save/state by a hand-written `id`
+(never `class.name` — minified); don't call `getGameComponent` inside
+`initialize`. See the doc for the full lifecycle, event map, and "how to add a
+component/event/action" checklist.
+
 ## Layout
 
 - `index.html` — entry HTML; mounts into `#app`.
-- `src/main.ts` — app entry point.
+- `src/main.ts` — bootstrap: `createGame()` + `mountUI(#app)`.
+- `src/game/` — the engine + game logic (see Architecture / the doc).
+- `src/ui/` — `render.ts` (paint snapshot) + `index.ts` (`mountUI`: wire DOM to game).
 - `src/style.css` — global styles.
-- `src/assets/` — images and SVGs.
 - `public/` — static files served as-is (favicon, icons).
+- `docs/ARCHITECTURE.md` — canonical engine design.
 - `tsconfig.json` — strict bundler-mode config; `noEmit` (Vite handles emit).
 
 ## Conventions
 
+- Follow the coding rules in **[docs/CODING_STYLE.md](docs/CODING_STYLE.md)**:
+  expressive names (`gameContext`, not `ctx`), no single-character variables,
+  short functions (~100 lines max, soft).
 - TypeScript is configured strictly: `noUnusedLocals`, `noUnusedParameters`,
   and `verbatimModuleSyntax` are on. Use `import type` for type-only imports.
-- Biome handles linting only — do not rely on it to format. Match the
-  surrounding style by hand.
+- Biome formats and lints. Run `npm run lint:fix` to apply formatting (incl.
+  semicolons, which are enforced); the config is tuned to the existing style, so
+  it shouldn't reshape code beyond that.
 - Keep game logic (state, ticks, progression math) separate from DOM rendering
   so it can be unit-tested with Vitest without a browser.
+
+### Comments — don't over-comment
+
+Default to **no comment**. Code should read on its own: prefer clear names and
+small functions over narration.
+
+- **Do not** restate what the code already says (`// loop over enemies`),
+  add JSDoc that just echoes the signature, or label obvious sections
+  (`// bind events`). Delete these on sight.
+- **Do** comment only when something is genuinely non-obvious: a subtle
+  invariant, a deliberate ordering, a type cast that needs justifying, a
+  workaround, or *why* a surprising choice was made. Explain the **why**, not
+  the **what**.
+- Keep necessary comments short — one line where possible.
+- A comment that explains a non-obvious magic number in a test (e.g. why an
+  expected EXP value is what it is) counts as necessary.
 
 ## Testing
 
@@ -78,15 +127,12 @@ break the game if it were wrong.
 - Use `vitest run` in CI / one-off checks; `npm test` watches during dev.
 - Add a regression test alongside any bug fix that reaches game logic.
 
-## Setup status
+## Tooling
 
-Biome and Vitest are configured. Biome (`biome.json`) runs the recommended
-lint rules with both the formatter and the assist (import organizing)
-disabled, so it never reformats. Vitest config lives in `vite.config.ts`.
-
-Still scaffold, still to do:
-
-- Replace the scaffold UI in `src/main.ts` / `index.html` with the game.
-- Remove leftover template files (`src/counter.ts`, demo assets) once unused.
-  Biome currently reports warnings against this scaffold code; they clear
-  once it's replaced.
+Biome (`biome.json`) runs the recommended lint preset plus a formatter tuned to
+match the codebase (single quotes, 2-space indent, ~100 line width, semicolons
+`always`); the assist (import organizing) stays disabled. Vitest config lives in
+`vite.config.ts`. The Vite scaffold has been replaced by the
+game; the first vertical slice (click-to-attack combat → EXP → level-up) is in
+place. See `Follow-ups` in any plan for what's intentionally deferred
+(save/load, auto-combat via `tick`, level-up stat effects).
