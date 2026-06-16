@@ -7,20 +7,20 @@ export interface InventoryData {
 }
 
 function createEmptyInventory(rows: number, cols: number) {
-    const inventory: (string | undefined)[][] = [];
-    for (let i = 0; i < rows; i++) {
-        inventory[i] = [];
-        for (let j = 0; j < cols; j++) {
-            inventory[i][j] = undefined;
-        }
+  const inventory: (string | undefined)[][] = [];
+  for (let i = 0; i < rows; i++) {
+    inventory[i] = [];
+    for (let j = 0; j < cols; j++) {
+      inventory[i][j] = undefined;
     }
+  }
 
-    return inventory;
+  return inventory;
 }
 
 class Inventory implements IGameComponent {
   readonly id = 'inventory';
-  private inventoryData: InventoryData = { slots: createEmptyInventory(5,5) };
+  private inventoryData: InventoryData = { slots: createEmptyInventory(5, 5) };
   private gameContext!: GameContext;
 
   initialize(gameContext: GameContext) {
@@ -46,7 +46,7 @@ class Inventory implements IGameComponent {
       throw new Error(`Item with id ${itemId} not found.`);
     }
 
-      this.gameContext.emit('inventoryUpdated', { inventory: this.inventoryData });
+    this.gameContext.emit('inventoryUpdated', { inventory: this.inventoryData });
 
     return true;
   }

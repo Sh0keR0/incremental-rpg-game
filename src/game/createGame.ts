@@ -2,13 +2,14 @@ import { type CombatState, Combat } from './components/Combat.ts';
 import { type PlayerState, Player } from './components/Player.ts';
 import { GameCore, type GameCoreOptions } from './GameCore.ts';
 import type { GameEventMap, GameEventName } from './types.ts';
-import Inventory from "./components/Inventory.ts";
+import Inventory, { type InventoryData } from './components/Inventory.ts';
 
 export type GameOptions = Omit<GameCoreOptions, 'components'>;
 
 export interface GameSnapshot {
   player: PlayerState;
   combat: CombatState;
+  inventory: InventoryData;
 }
 
 export interface Game {
@@ -28,6 +29,7 @@ export function createGame(options: GameOptions = {}): Game {
   const getState = (): GameSnapshot => ({
     player: core.getGameComponent(Player).getState(),
     combat: core.getGameComponent(Combat).getState(),
+    inventory: core.getGameComponent(Inventory).getState(),
   });
 
   return {

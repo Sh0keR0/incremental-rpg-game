@@ -1,4 +1,5 @@
 import type { GameSnapshot } from '../game/index.ts';
+import type { InventoryData } from '../game/components/Inventory.ts';
 
 export const TEMPLATE = `
   <div class="game">
@@ -15,6 +16,12 @@ export const TEMPLATE = `
       <div class="bar exp-bar">
         <div class="bar-fill"></div>
         <span class="bar-label"></span>
+      </div>
+    </section>
+    <section class="inventory-panel">
+      <h3 class="inventory-title">Inventory</h3>
+      <div id="inventory" class="inventory-grid">
+<!--        ${Array.from({ length: 25 }, (_, index) => `<div data-inventory-slot="${index}" class="inventory-slot"></div>`).join('')}-->
       </div>
     </section>
     <div class="fx-layer" aria-hidden="true"></div>
@@ -47,4 +54,19 @@ export function render(root: HTMLElement, state: GameSnapshot): void {
   const level = root.querySelector<HTMLElement>('.player-level');
   if (level) level.textContent = `Level ${player.level}`;
   setBar(root, '.exp-bar', player.exp, player.expToNext, `${player.exp} / ${player.expToNext} EXP`);
+}
+
+export function updateInventoryUI(inventoryData: InventoryData): void {
+  const inventoryElement = document.getElementById('inventory');
+  if (!inventoryElement) {
+    return;
+  }
+  let html = '';
+  for (let i = 0; i < inventoryData.slots.length; i++) {
+    for (let j = 0; j < inventoryData.slots[i].length; j++) {
+      html += `<div data-inventory-slot="[${i},${j}]" class="inventory-slot">${inventoryData.slots[i][j] ? 'I' : ''}</div>`;
+    }
+  }
+
+  inventoryElement.innerHTML = html;
 }

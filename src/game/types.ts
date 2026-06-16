@@ -1,5 +1,5 @@
 import type { DroppableItem } from './components/Combat.ts';
-import type {InventoryData} from "./components/Inventory.ts";
+import type { InventoryData } from './components/Inventory.ts';
 
 export interface GameEventMap {
   attacked: { damage: number; enemyHp: number; enemyName: string };
