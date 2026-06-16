@@ -1,5 +1,12 @@
 import { applyExp, expForLevel } from '../systems/progression.ts';
-import type { GameContext, IGameComponent, PlayerState } from '../types.ts';
+import type { GameContext, IGameComponent } from '../types.ts';
+
+export interface PlayerState {
+  level: number;
+  exp: number;
+  expToNext: number;
+  attack: number;
+}
 
 export class Player implements IGameComponent {
   readonly id = 'player';
@@ -36,12 +43,12 @@ export class Player implements IGameComponent {
     return { level: this.level, exp: this.exp, expToNext: this.expToNext, attack: this.attack };
   }
 
-  save(): unknown {
-    return { level: this.level, exp: this.exp, attack: this.attack };
+  save(): PlayerState {
+    return this.getState();
   }
 
   load(data: unknown): void {
-    const saved = data as { level: number; exp: number; attack: number };
+    const saved = data as PlayerState;
     this.level = saved.level;
     this.exp = saved.exp;
     this.attack = saved.attack;

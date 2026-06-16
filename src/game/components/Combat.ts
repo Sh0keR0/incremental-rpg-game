@@ -1,6 +1,17 @@
 import { spawnEnemy } from '../content/enemies.ts';
-import type { CombatState, Enemy, GameContext, IGameComponent } from '../types.ts';
+import type { GameContext, IGameComponent } from '../types.ts';
 import { Player } from './Player.ts';
+
+export interface Enemy {
+  name: string;
+  hp: number;
+  maxHp: number;
+  expReward: number;
+}
+
+export interface CombatState {
+  enemy: Enemy;
+}
 
 export class Combat implements IGameComponent {
   readonly id = 'combat';

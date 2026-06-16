@@ -146,19 +146,26 @@ from the event name. Add an event by adding one line here.
 src/game/
   index.ts          public barrel — createGame + types ONLY (no components)
   GameCore.ts       the engine
-  createGame.ts     composition: component list, actions, typed snapshot, facade
-  types.ts          IGameComponent, GameContext, GameEventMap, Game, GameSnapshot, Enemy
-  components/        Player.ts, Combat.ts (+ tests)
+  createGame.ts     composition: component list, actions, Game facade + GameSnapshot
+  types.ts          GLOBAL/engine types only: IGameComponent, GameContext, ComponentClass, GameEventMap
+  components/        Player.ts (+ PlayerState), Combat.ts (+ CombatState) (+ tests)
   systems/          pure rules helpers (progression: expForLevel, applyExp)
   content/          game data (enemies: ENEMY_POOL, spawnEnemy)
   internal/         engine plumbing (emitter)
 ```
 
+**Type placement:** a component's own state type lives in and is exported from
+that component's file (`PlayerState` in `Player.ts`, `CombatState` in
+`Combat.ts`). `types.ts` holds only global/engine types. Game-specific
+composition types (`Game`, `GameSnapshot`) live in `createGame.ts`. The barrel
+re-exports whatever the UI needs.
+
 ## Extending the game
 
 - **Add a component**: create a class in `components/` with an `id` and the hooks
-  you need; register its class in the `createGame` component list. Other
-  components reach it via `getGameComponent`.
+  you need; define and export its state type (e.g. `FooState`) from the same
+  file; register its class in the `createGame` component list. Other components
+  reach it via `getGameComponent`.
 - **Add an event**: add a line to `GameEventMap`; `emit`/`on` are typed
   automatically.
 - **Add a player action**: add it to the `actions` object in `createGame`,
