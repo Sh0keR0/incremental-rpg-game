@@ -11,47 +11,43 @@ export interface PlayerState {
 export class Player implements IGameComponent {
   readonly id = 'player';
   private gameContext!: GameContext;
-  private level = 1;
-  private exp = 0;
-  private expToNext = expForLevel(1);
-  private attack = 5;
+  private state: PlayerState = { level: 1, exp: 0, expToNext: expForLevel(1), attack: 5 };
 
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
   }
 
   getAttack(): number {
-    return this.attack;
+    return this.state.attack;
   }
 
   gainExp(amount: number): void {
     const result = applyExp(
-      { level: this.level, exp: this.exp, expToNext: this.expToNext },
+      { level: this.state.level, exp: this.state.exp, expToNext: this.state.expToNext },
       amount,
     );
-    this.level = result.level;
-    this.exp = result.exp;
-    this.expToNext = result.expToNext;
+    this.state.level = result.level;
+    this.state.exp = result.exp;
+    this.state.expToNext = result.expToNext;
 
-    this.gameContext.emit('expGained', { amount, exp: this.exp, expToNext: this.expToNext });
+    this.gameContext.emit('expGained', {
+      amount,
+      exp: this.state.exp,
+      expToNext: this.state.expToNext,
+    });
     for (const level of result.levelsGained) {
       this.gameContext.emit('leveledUp', { level });
     }
   }
 
   getState(): PlayerState {
-    return { level: this.level, exp: this.exp, expToNext: this.expToNext, attack: this.attack };
+    return this.state;
   }
-
   save(): PlayerState {
-    return this.getState();
+    return this.state;
   }
 
   load(data: unknown): void {
-    const saved = data as PlayerState;
-    this.level = saved.level;
-    this.exp = saved.exp;
-    this.attack = saved.attack;
-    this.expToNext = expForLevel(this.level);
+    this.state = data as PlayerState;
   }
 }
