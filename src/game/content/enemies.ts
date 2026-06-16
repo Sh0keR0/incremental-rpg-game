@@ -1,16 +1,17 @@
-import type { Enemy } from '../types.ts';
+import type { DroppableItem, Enemy } from '../components/Combat.ts';
 
 interface EnemyTemplate {
   name: string;
   maxHp: number;
   expReward: number;
+  drops: DroppableItem[];
 }
 
 export const ENEMY_POOL: readonly EnemyTemplate[] = [
-  { name: 'Slime', maxHp: 15, expReward: 5 },
-  { name: 'Goblin', maxHp: 25, expReward: 9 },
-  { name: 'Bat', maxHp: 10, expReward: 4 },
-  { name: 'Skeleton', maxHp: 30, expReward: 12 },
+  // { name: 'Slime', maxHp: 15, expReward: 5, drops: [] },
+  // { name: 'Goblin', maxHp: 25, expReward: 9, drops: [] },
+  // { name: 'Bat', maxHp: 10, expReward: 4, drops: [] },
+  { name: 'Skeleton', maxHp: 30, expReward: 12, drops: [{ chance: 1, itemId: 'ShortSword' }] },
 ];
 
 export function spawnEnemy(rng: () => number): Enemy {
@@ -21,5 +22,6 @@ export function spawnEnemy(rng: () => number): Enemy {
     hp: template.maxHp,
     maxHp: template.maxHp,
     expReward: template.expReward,
+    drops: template.drops,
   };
 }

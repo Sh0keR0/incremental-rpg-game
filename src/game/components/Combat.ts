@@ -1,12 +1,19 @@
 import { spawnEnemy } from '../content/enemies.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
 import { Player } from './Player.ts';
+import Inventory from './Inventory.ts';
+
+export interface DroppableItem {
+  itemId: string;
+  chance: number;
+}
 
 export interface Enemy {
   name: string;
   hp: number;
   maxHp: number;
   expReward: number;
+  drops: DroppableItem[];
 }
 
 export interface CombatState {
@@ -32,14 +39,34 @@ export class Combat implements IGameComponent {
       enemyName: this.enemy.name,
     });
     if (remainingHp > 0) return;
+    this.defeatEnemy();
+  }
 
+  private defeatEnemy() {
+    this.gameContext.getGameComponent(Player).gainExp(this.enemy.expReward);
+
+    const drops = this.rollDrops();
+    for (const drop of drops) {
+      this.gameContext.getGameComponent(Inventory).add(drop.itemId);
+    }
     this.gameContext.emit('enemyDefeated', {
       name: this.enemy.name,
       expReward: this.enemy.expReward,
+      drops: drops,
     });
-    this.gameContext.getGameComponent(Player).gainExp(this.enemy.expReward);
+
     this.enemy = spawnEnemy(this.gameContext.rng);
     this.gameContext.emit('enemySpawned', { name: this.enemy.name, maxHp: this.enemy.maxHp });
+  }
+
+  private rollDrops(): DroppableItem[] {
+    const drops: DroppableItem[] = [];
+    for (const droppable of this.enemy.drops) {
+      if (this.gameContext.rng() <= droppable.chance) {
+        drops.push(droppable);
+      }
+    }
+    return drops;
   }
 
   getState(): CombatState {

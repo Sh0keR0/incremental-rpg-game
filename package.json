@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n vite,tsc -c cyan,yellow \"vite\" \"tsc --noEmit --watch --preserveWatchOutput\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.0",
+    "concurrently": "^10.0.3",
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
     "vitest": "4.1.9"

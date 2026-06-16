@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
 
 export default defineConfig({
   test: {
@@ -7,4 +7,4 @@ export default defineConfig({
     // environment is enough. Switch to 'jsdom' if a test touches the DOM.
     include: ['src/**/*.test.ts'],
   },
-})
+});
