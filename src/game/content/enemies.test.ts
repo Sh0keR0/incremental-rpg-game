@@ -9,6 +9,7 @@ describe('spawnEnemy', () => {
       hp: ENEMY_POOL[0].maxHp,
       maxHp: ENEMY_POOL[0].maxHp,
       expReward: ENEMY_POOL[0].expReward,
+      drops: ENEMY_POOL[0].drops,
     });
   });
 
