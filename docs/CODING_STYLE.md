@@ -19,7 +19,8 @@ const dmg = player.getAttack()
 ```
 
 **No single-character variable names.** This includes loop variables, callback
-parameters, and destructured shorthands.
+parameters, and destructured shorthands. 
+However, when looping over indexes of an array or list, `i`/`j` is an acceptable variable name.
 
 ```ts
 // good
@@ -34,8 +35,8 @@ const { p } = snapshot
 ```
 
 Common abbreviations that are universally understood in their context are
-acceptable (`id`, `dt` for delta-time, `i`/`j` are **not** — spell out
-`index`). When unsure, prefer the longer, clearer name.
+acceptable (`id`, `dt` for delta-time, `i`/`j` are acceptable only if the context where it used is clear).
+When unsure, prefer the longer, clearer name.
 
 ## Functions
 
