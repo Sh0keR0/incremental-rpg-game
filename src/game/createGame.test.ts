@@ -67,4 +67,40 @@ describe('createGame', () => {
     expect(onLevelUp).toHaveBeenCalledWith({ level: 2 });
     expect(game.getState().player.level).toBe(2);
   });
+
+  test('initial snapshot includes default stats', () => {
+    const state = newGame().getState();
+    expect(state.stats).toEqual({
+      unspentPoints: 0,
+      stats: { strength: 0, agility: 0, endurance: 0 },
+    });
+  });
+
+  test('level up awards stat points and allocateStat spends them', () => {
+    const game = newGame();
+
+    let safety = 0;
+    while (game.getState().player.level < 2 && safety++ < 1000) {
+      game.actions.attack();
+    }
+
+    expect(game.getState().stats.unspentPoints).toBe(1);
+
+    game.actions.allocateStat('strength');
+    expect(game.getState().stats.stats.strength).toBe(1);
+    expect(game.getState().stats.unspentPoints).toBe(0);
+  });
+
+  test('statsChanged event fires on level up', () => {
+    const game = newGame();
+    const onStatsChanged = vi.fn();
+    game.on('statsChanged', onStatsChanged);
+
+    let safety = 0;
+    while (game.getState().player.level < 2 && safety++ < 1000) {
+      game.actions.attack();
+    }
+
+    expect(onStatsChanged).toHaveBeenCalledWith(expect.objectContaining({ unspentPoints: 1 }));
+  });
 });
