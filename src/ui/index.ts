@@ -1,5 +1,5 @@
-import type { Game } from '../game/index.ts';
-import { render, TEMPLATE, updateInventoryUI } from './render.ts';
+import type { Game, StatName } from '../game/index.ts';
+import { render, renderStats, TEMPLATE, updateInventoryUI } from './render.ts';
 
 function floater(layer: HTMLElement, text: string, className: string): void {
   const element = document.createElement('div');
@@ -26,7 +26,17 @@ export function mountUI(game: Game, root: HTMLElement): void {
     if (button) game.actions.selectStage(button.dataset.stageId ?? '');
   });
 
-  game.subscribe((state) => render(view, state));
+  for (const button of view.querySelectorAll<HTMLButtonElement>('.stat-allocate-btn')) {
+    const statName = button.closest<HTMLElement>('.stat-row')?.dataset.stat as StatName | undefined;
+    if (statName) {
+      button.addEventListener('click', () => game.actions.allocateStat(statName));
+    }
+  }
+
+  game.subscribe((state) => {
+    render(view, state);
+    renderStats(view, state);
+  });
   game.on('attacked', (event) => floater(fxLayer, `-${event.damage}`, 'damage'));
   game.on('expGained', (event) => floater(fxLayer, `+${event.amount} EXP`, 'exp'));
   game.on('leveledUp', (event) => floater(fxLayer, `Level ${event.level}!`, 'levelup'));
@@ -34,7 +44,9 @@ export function mountUI(game: Game, root: HTMLElement): void {
   game.on('bossUnlocked', () => floater(fxLayer, 'Boss unlocked!', 'levelup'));
   game.on('bossFailed', () => floater(fxLayer, 'Boss escaped!', 'damage'));
   game.on('stageUnlocked', (event) => floater(fxLayer, `${event.stageName} unlocked!`, 'levelup'));
-  render(view, game.getState());
-  updateInventoryUI(game.getState().inventory);
+  const initialState = game.getState();
+  render(view, initialState);
+  renderStats(view, initialState);
+  updateInventoryUI(initialState.inventory);
   game.start();
 }
