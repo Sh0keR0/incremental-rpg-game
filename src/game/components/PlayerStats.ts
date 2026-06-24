@@ -19,7 +19,7 @@ export class PlayerStats implements IGameComponent {
 
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
-    this.gameContext.on('leveledUp', () => this.awardPoints());
+    this.gameContext.on('leveledUp', () => this.awardPoints(STAT_POINTS_PER_LEVEL));
   }
 
   getStat(statName: StatName): number {
@@ -54,8 +54,8 @@ export class PlayerStats implements IGameComponent {
     this.state = data as PlayerStatsState;
   }
 
-  private awardPoints(): void {
-    this.state.unspentPoints += STAT_POINTS_PER_LEVEL;
+  awardPoints(amount: number): void {
+    this.state.unspentPoints += amount;
     this.emitStatsChanged();
   }
 

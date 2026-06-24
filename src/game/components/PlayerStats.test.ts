@@ -130,6 +130,14 @@ describe('PlayerStats', () => {
     });
   });
 
+  test('awardPoints adds the given amount of unspent points', () => {
+    const { playerStats } = makePlayerStats();
+    playerStats.awardPoints(3);
+    expect(playerStats.getUnspentPoints()).toBe(3);
+    playerStats.awardPoints(2);
+    expect(playerStats.getUnspentPoints()).toBe(5);
+  });
+
   test('save/load round-trips state', () => {
     const { playerStats, simulateEvent } = makePlayerStats();
     simulateEvent('leveledUp', { level: 2 });
