@@ -91,6 +91,25 @@ describe('createGame', () => {
     expect(game.getState().stats.unspentPoints).toBe(0);
   });
 
+  test('no features are unlocked initially', () => {
+    expect(newGame().getState().unlocks).toEqual({ unlocked: [] });
+  });
+
+  test('inventory unlocks and featureUnlocked fires once an enemy drops an item', () => {
+    const game = newGame(); // rng: () => 0 rolls every drop, so the first kill yields loot
+    const onUnlocked = vi.fn();
+    game.on('featureUnlocked', onUnlocked);
+
+    const enemy = game.getState().combat.enemy;
+    expect(enemy.drops.length).toBeGreaterThan(0);
+    const { attack } = game.getState().player;
+    const hitsToKill = Math.ceil(enemy.maxHp / attack);
+    for (let hit = 0; hit < hitsToKill; hit++) game.actions.attack();
+
+    expect(game.getState().unlocks.unlocked).toContain('inventory');
+    expect(onUnlocked).toHaveBeenCalledWith({ feature: 'inventory' });
+  });
+
   test('statsChanged event fires on level up', () => {
     const game = newGame();
     const onStatsChanged = vi.fn();

@@ -1,5 +1,6 @@
 import type { DroppableItem } from './components/Combat.ts';
 import type { InventoryData } from './components/Inventory.ts';
+import type { FeatureKey } from './components/Unlocks.ts';
 
 export type StatName = 'strength' | 'agility' | 'endurance';
 
@@ -11,6 +12,7 @@ export interface GameEventMap {
   enemySpawned: { name: string; maxHp: number };
   inventoryUpdated: { inventory: InventoryData };
   statsChanged: { stats: Record<StatName, number>; unspentPoints: number };
+  featureUnlocked: { feature: FeatureKey };
 }
 
 export type GameEventName = keyof GameEventMap;

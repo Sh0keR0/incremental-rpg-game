@@ -1,4 +1,4 @@
-import type { GameSnapshot } from '../game/index.ts';
+import type { FeatureKey, GameSnapshot, UnlocksState } from '../game/index.ts';
 import type { InventoryData } from '../game/components/Inventory.ts';
 
 export const TEMPLATE = `
@@ -18,7 +18,7 @@ export const TEMPLATE = `
         <span class="bar-label"></span>
       </div>
     </section>
-    <section class="inventory-panel">
+    <section class="inventory-panel foldable" data-feature="inventory">
       <h3 class="inventory-title">Inventory</h3>
       <div id="inventory" class="inventory-grid">
 <!--        ${Array.from({ length: 25 }, (_, index) => `<div data-inventory-slot="${index}" class="inventory-slot"></div>`).join('')}-->
@@ -54,6 +54,19 @@ export function render(root: HTMLElement, state: GameSnapshot): void {
   const level = root.querySelector<HTMLElement>('.player-level');
   if (level) level.textContent = `Level ${player.level}`;
   setBar(root, '.exp-bar', player.exp, player.expToNext, `${player.exp} / ${player.expToNext} EXP`);
+
+  applyUnlocks(root, state.unlocks);
+}
+
+function applyUnlocks(root: HTMLElement, unlocks: UnlocksState): void {
+  for (const section of root.querySelectorAll<HTMLElement>('[data-feature]')) {
+    const feature = section.dataset.feature as FeatureKey;
+    section.classList.toggle('revealed', unlocks.unlocked.includes(feature));
+  }
+}
+
+export function revealFeature(root: HTMLElement, feature: FeatureKey): void {
+  root.querySelector<HTMLElement>(`[data-feature="${feature}"]`)?.classList.add('revealed');
 }
 
 export function updateInventoryUI(inventoryData: InventoryData): void {

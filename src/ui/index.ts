@@ -1,5 +1,5 @@
 import type { Game } from '../game/index.ts';
-import { render, TEMPLATE, updateInventoryUI } from './render.ts';
+import { render, revealFeature, TEMPLATE, updateInventoryUI } from './render.ts';
 
 function floater(layer: HTMLElement, text: string, className: string): void {
   const element = document.createElement('div');
@@ -24,6 +24,7 @@ export function mountUI(game: Game, root: HTMLElement): void {
   game.on('expGained', (event) => floater(fxLayer, `+${event.amount} EXP`, 'exp'));
   game.on('leveledUp', (event) => floater(fxLayer, `Level ${event.level}!`, 'levelup'));
   game.on('inventoryUpdated', (event) => updateInventoryUI(event.inventory));
+  game.on('featureUnlocked', (event) => revealFeature(view, event.feature));
   render(view, game.getState());
   updateInventoryUI(game.getState().inventory);
   game.start();
