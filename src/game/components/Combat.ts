@@ -1,7 +1,9 @@
-import { spawnEnemy } from '../content/enemies.ts';
+import { type EnemyTemplate, instantiateEnemy } from '../content/enemies.ts';
+import { spawnStageEnemy, STAGES } from '../content/stages.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
 import { Player } from './Player.ts';
 import Inventory from './Inventory.ts';
+import { Stages } from './Stages.ts';
 
 export interface DroppableItem {
   itemId: string;
@@ -18,16 +20,18 @@ export interface Enemy {
 
 export interface CombatState {
   enemy: Enemy;
+  isBoss: boolean;
 }
 
 export class Combat implements IGameComponent {
   readonly id = 'combat';
   private gameContext!: GameContext;
   private enemy!: Enemy;
+  private currentEnemyIsBoss = false;
 
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
-    this.enemy = spawnEnemy(gameContext.rng);
+    this.enemy = spawnStageEnemy(STAGES[0], gameContext.rng);
   }
 
   damageEnemy(amount: number): void {
@@ -40,6 +44,18 @@ export class Combat implements IGameComponent {
     });
     if (remainingHp > 0) return;
     this.defeatEnemy();
+  }
+
+  spawnNormalEnemy(): void {
+    const stage = this.gameContext.getGameComponent(Stages).getCurrentStage();
+    this.enemy = spawnStageEnemy(stage, this.gameContext.rng);
+    this.currentEnemyIsBoss = false;
+    this.gameContext.emit('enemySpawned', { name: this.enemy.name, maxHp: this.enemy.maxHp });
+  }
+
+  spawnBoss(template: EnemyTemplate): void {
+    this.enemy = instantiateEnemy(template);
+    this.currentEnemyIsBoss = true;
   }
 
   private defeatEnemy() {
@@ -55,8 +71,13 @@ export class Combat implements IGameComponent {
       drops: drops,
     });
 
-    this.enemy = spawnEnemy(this.gameContext.rng);
-    this.gameContext.emit('enemySpawned', { name: this.enemy.name, maxHp: this.enemy.maxHp });
+    const stages = this.gameContext.getGameComponent(Stages);
+    if (this.currentEnemyIsBoss) {
+      stages.completeBossFight();
+    } else {
+      stages.registerNormalKill();
+    }
+    this.spawnNormalEnemy();
   }
 
   private rollDrops(): DroppableItem[] {
@@ -70,15 +91,16 @@ export class Combat implements IGameComponent {
   }
 
   getState(): CombatState {
-    return { enemy: { ...this.enemy } };
+    return { enemy: { ...this.enemy }, isBoss: this.currentEnemyIsBoss };
   }
 
   save(): unknown {
-    return { enemy: this.enemy };
+    return { enemy: this.enemy, isBoss: this.currentEnemyIsBoss };
   }
 
   load(data: unknown): void {
-    const saved = data as { enemy: Enemy };
+    const saved = data as { enemy: Enemy; isBoss?: boolean };
     this.enemy = saved.enemy;
+    this.currentEnemyIsBoss = saved.isBoss ?? false;
   }
 }

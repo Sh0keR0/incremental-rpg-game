@@ -11,6 +11,11 @@ export interface GameEventMap {
   enemySpawned: { name: string; maxHp: number };
   inventoryUpdated: { inventory: InventoryData };
   statsChanged: { stats: Record<StatName, number>; unspentPoints: number };
+  bossUnlocked: { stageName: string };
+  bossStarted: { name: string; maxHp: number; timeLimitMs: number };
+  bossFailed: { stageName: string };
+  stageUnlocked: { stageId: string; stageName: string };
+  stageSelected: { stageId: string; stageName: string };
 }
 
 export type GameEventName = keyof GameEventMap;
