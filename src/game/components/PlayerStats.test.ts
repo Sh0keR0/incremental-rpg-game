@@ -1,42 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import type { GameContext } from '../types.ts';
+import { makeTestContext } from '../testing/makeTestContext.ts';
 import { PlayerStats } from './PlayerStats.ts';
 
-interface Captured {
-  name: string;
-  payload: unknown;
-}
-
-function makeContext() {
-  const events: Captured[] = [];
-  const listeners = new Map<string, Set<(payload: unknown) => void>>();
-  const gameContext: GameContext = {
-    rng: () => 0,
-    emit: (name, payload) => {
-      events.push({ name, payload });
-    },
-    on: (name, listener) => {
-      if (!listeners.has(name)) listeners.set(name, new Set());
-      const set = listeners.get(name) as Set<(payload: unknown) => void>;
-      set.add(listener as (payload: unknown) => void);
-      return () => {
-        set.delete(listener as (payload: unknown) => void);
-      };
-    },
-    enqueue: () => {},
-    handle: () => {},
-    getGameComponent: () => {
-      throw new Error('getGameComponent not available in this test');
-    },
-  };
-  const simulateEvent = (name: string, payload: unknown) => {
-    for (const fn of listeners.get(name) ?? []) fn(payload);
-  };
-  return { gameContext, events, simulateEvent };
-}
-
 function makePlayerStats() {
-  const { gameContext, events, simulateEvent } = makeContext();
+  const { gameContext, events, simulateEvent } = makeTestContext();
   const playerStats = new PlayerStats();
   playerStats.initialize(gameContext);
   return { playerStats, events, simulateEvent };

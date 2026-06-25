@@ -1,11 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import type { GameContext } from '../types.ts';
+import { makeTestContext } from '../testing/makeTestContext.ts';
 import { Combat, type Enemy } from './Combat.ts';
-
-interface Captured {
-  name: string;
-  payload: unknown;
-}
 
 // A self-contained enemy so these tests don't depend on the shipping ENEMY_POOL,
 // whose stats and drops change during development.
@@ -17,25 +12,8 @@ const TEST_ENEMY: Enemy = {
   drops: [{ itemId: 'WoodenSword', chance: 1 }],
 };
 
-function makeContext(): { gameContext: GameContext; events: Captured[] } {
-  const events: Captured[] = [];
-  const gameContext: GameContext = {
-    rng: () => 0, // deterministic respawn + guaranteed (chance 1) drop rolls
-    emit: (name, payload) => {
-      events.push({ name, payload });
-    },
-    on: () => () => {},
-    enqueue: () => {},
-    handle: () => {},
-    getGameComponent: () => {
-      throw new Error('getGameComponent not available in this test');
-    },
-  };
-  return { gameContext, events };
-}
-
 function setup(enemy: Enemy = TEST_ENEMY) {
-  const context = makeContext();
+  const context = makeTestContext(); // rng: () => 0 → deterministic respawn + guaranteed drops
   const combat = new Combat();
   combat.initialize(context.gameContext);
   combat.load({ enemy: { ...enemy } }); // replace the pool-spawned enemy with our fixture
@@ -44,7 +22,7 @@ function setup(enemy: Enemy = TEST_ENEMY) {
 
 describe('Combat', () => {
   test('spawns a full-HP enemy on initialize', () => {
-    const { gameContext } = makeContext();
+    const { gameContext } = makeTestContext();
     const combat = new Combat();
     combat.initialize(gameContext);
     const { enemy } = combat.getState();
