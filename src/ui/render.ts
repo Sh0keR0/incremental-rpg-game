@@ -4,8 +4,11 @@ import type { InventoryData } from '../game/components/Inventory.ts';
 export const TEMPLATE = `
   <div class="game">
     <section class="stage-panel">
-      <div class="stage-selector"></div>
-      <h2 class="stage-name"></h2>
+      <div class="stage-selector">
+        <button class="stage-arrow stage-prev" type="button" aria-label="Previous stage">‹</button>
+        <h2 class="stage-name"></h2>
+        <button class="stage-arrow stage-next" type="button" aria-label="Next stage">›</button>
+      </div>
       <div class="stage-progress"></div>
     </section>
     <section class="enemy-panel">
@@ -71,23 +74,10 @@ function setBar(
 }
 
 function renderStageSelector(root: HTMLElement, stages: StagesState): void {
-  const container = root.querySelector<HTMLElement>('.stage-selector');
-  if (!container) return;
-  if (container.childElementCount !== stages.stages.length) {
-    container.innerHTML = stages.stages
-      .map(
-        (stage) => `<button class="stage-btn" type="button" data-stage-id="${stage.id}"></button>`,
-      )
-      .join('');
-  }
-  const buttons = container.querySelectorAll<HTMLButtonElement>('.stage-btn');
-  stages.stages.forEach((stage, index) => {
-    const button = buttons[index];
-    if (!button) return;
-    button.textContent = stage.unlocked ? stage.name : 'Locked';
-    button.disabled = !stage.unlocked || stages.mode === 'boss';
-    button.classList.toggle('current', stage.isCurrent);
-  });
+  const prev = root.querySelector<HTMLButtonElement>('.stage-prev');
+  if (prev) prev.disabled = stages.prevStageId === undefined;
+  const next = root.querySelector<HTMLButtonElement>('.stage-next');
+  if (next) next.disabled = stages.nextStageId === undefined;
 }
 
 function renderStageProgress(root: HTMLElement, stages: StagesState): void {

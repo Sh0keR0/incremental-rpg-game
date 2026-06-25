@@ -28,6 +28,8 @@ export interface StagesState {
   bossTimeRemainingMs: number;
   bossTimeLimitMs: number;
   stages: StageOverview[];
+  prevStageId?: string;
+  nextStageId?: string;
 }
 
 export class Stages implements IGameComponent {
@@ -117,6 +119,8 @@ export class Stages implements IGameComponent {
     const progress = this.progressByStageId[this.currentStageId];
     const kills = progress?.kills ?? 0;
     return {
+      prevStageId: this.navigableNeighborId(-1),
+      nextStageId: this.navigableNeighborId(1),
       currentStageId: stage.id,
       currentStageName: stage.name,
       kills: Math.min(kills, stage.killsToUnlockBoss),
@@ -173,6 +177,14 @@ export class Stages implements IGameComponent {
         : STAGES[0].id;
     this.mode = saved.mode === 'boss' ? 'boss' : 'normal';
     this.bossTimeRemainingMs = saved.bossTimeRemainingMs ?? 0;
+  }
+
+  private navigableNeighborId(offset: number): string | undefined {
+    if (this.mode !== 'normal') return undefined;
+    const currentIndex = STAGES.findIndex((stage) => stage.id === this.currentStageId);
+    const neighbor = STAGES[currentIndex + offset];
+    if (!neighbor || !this.unlockedStageIds.includes(neighbor.id)) return undefined;
+    return neighbor.id;
   }
 
   private progressFor(stageId: string): StageProgress {

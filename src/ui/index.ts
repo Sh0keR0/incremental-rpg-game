@@ -21,9 +21,13 @@ export function mountUI(game: Game, root: HTMLElement): void {
   root.querySelector<HTMLButtonElement>('.fight-boss-btn')?.addEventListener('click', () => {
     game.actions.fightBoss();
   });
-  root.querySelector<HTMLElement>('.stage-selector')?.addEventListener('click', (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-stage-id]');
-    if (button) game.actions.selectStage(button.dataset.stageId ?? '');
+  root.querySelector<HTMLButtonElement>('.stage-prev')?.addEventListener('click', () => {
+    const target = game.getState().stages.prevStageId;
+    if (target) game.actions.selectStage(target);
+  });
+  root.querySelector<HTMLButtonElement>('.stage-next')?.addEventListener('click', () => {
+    const target = game.getState().stages.nextStageId;
+    if (target) game.actions.selectStage(target);
   });
 
   for (const button of view.querySelectorAll<HTMLButtonElement>('.stat-allocate-btn')) {

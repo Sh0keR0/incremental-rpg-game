@@ -159,6 +159,41 @@ describe('Stages', () => {
     expect(stages.selectStage(FIRST.id)).toBe(false);
   });
 
+  test('exposes no navigable neighbors on the first stage with nothing else unlocked', () => {
+    const { stages } = setup();
+    const state = stages.getState();
+    expect(state.prevStageId).toBeUndefined();
+    expect(state.nextStageId).toBeUndefined();
+  });
+
+  test('exposes the next stage once it is unlocked, and the prev stage from there', () => {
+    const { stages } = setup();
+    unlockBoss(stages);
+    stages.beginBossFight();
+    stages.completeBossFight(); // unlocks + moves to SECOND
+
+    const onSecond = stages.getState();
+    expect(onSecond.prevStageId).toBe(FIRST.id);
+    expect(onSecond.nextStageId).toBeUndefined(); // THIRD not unlocked yet
+
+    stages.selectStage(FIRST.id);
+    const onFirst = stages.getState();
+    expect(onFirst.prevStageId).toBeUndefined();
+    expect(onFirst.nextStageId).toBe(SECOND.id);
+  });
+
+  test('exposes no navigable neighbors during a boss fight', () => {
+    const { stages } = setup();
+    unlockBoss(stages);
+    stages.beginBossFight();
+    stages.completeBossFight(); // on SECOND, FIRST behind it
+    unlockBossFor(stages, SECOND.killsToUnlockBoss);
+    stages.beginBossFight();
+    const state = stages.getState();
+    expect(state.prevStageId).toBeUndefined();
+    expect(state.nextStageId).toBeUndefined();
+  });
+
   test('selectStage moves between unlocked stages and preserves their progress', () => {
     const { stages } = setup();
     unlockBoss(stages);

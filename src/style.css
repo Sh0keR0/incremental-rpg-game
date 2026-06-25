@@ -37,16 +37,19 @@ body {
 
 .stage-selector {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 1rem;
   margin-bottom: 0.75rem;
 }
 
-.stage-btn {
-  padding: 0.4rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+.stage-arrow {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
   color: var(--text);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -55,22 +58,18 @@ body {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.stage-btn:hover:not(:disabled) {
+.stage-arrow:hover:not(:disabled) {
   border-color: var(--accent);
 }
 
-.stage-btn.current {
-  border-color: var(--accent);
-  background: rgba(233, 69, 96, 0.18);
-}
-
-.stage-btn:disabled {
-  opacity: 0.45;
+.stage-arrow:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
 .stage-name {
-  margin: 0 0 0.25rem;
+  margin: 0;
+  min-width: 8ch;
   font-size: 1.1rem;
   opacity: 0.9;
 }
