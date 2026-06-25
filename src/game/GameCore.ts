@@ -31,8 +31,6 @@ export class GameCore {
 
   private frameHandle: number | null = null;
   private lastNow = 0;
-  private dispatchDepth = 0;
-  private readonly eventQueue: Array<() => void> = [];
 
   constructor(options: GameCoreOptions) {
     const rng = options.rng ?? Math.random;
@@ -42,7 +40,7 @@ export class GameCore {
 
     this.gameContext = {
       rng,
-      emit: (name, payload) => this.queueEvent(name, payload),
+      emit: (name, payload) => this.emitter.emit(name, payload),
       on: (name, listener) => this.emitter.on(name, listener),
       enqueue: (name, payload) => this.commandQueue.enqueue(name, payload),
       handle: (name, handler) => this.commandQueue.handle(name, handler),
@@ -85,31 +83,16 @@ export class GameCore {
   }
 
   // One frame of the game: apply queued player intents, then run time-based
-  // progression. Wrapped in a single dispatch so it renders once and (for now)
-  // still defers events. Commands drain before onTick so input lands this frame.
+  // progression. Events emitted along the way fire synchronously and cascade,
+  // so by the time we render the whole frame has settled. Commands drain before
+  // onTick so input queued since the last frame lands this frame.
   tick(deltaMs: number): void {
-    this.dispatch(() => {
-      this.drainCommands();
-      for (const component of this.components.values()) {
-        component.onTick?.(deltaMs);
-      }
-    });
-  }
-
-  // Transaction: run the mutation, then notify subscribers, then flush events,
-  // so the UI renders settled state before transient FX fire.
-  dispatch(mutator: () => void): void {
-    this.dispatchDepth += 1;
-    try {
-      mutator();
-    } finally {
-      this.dispatchDepth -= 1;
+    this.drainCommands();
+    for (const component of this.components.values()) {
+      component.onTick?.(deltaMs);
     }
-    if (this.dispatchDepth === 0) {
-      for (const listener of [...this.stateListeners]) {
-        listener();
-      }
-      this.flushEvents();
+    for (const listener of [...this.stateListeners]) {
+      listener();
     }
   }
 
@@ -149,21 +132,6 @@ export class GameCore {
       if (componentData !== undefined) {
         component.load?.(componentData);
       }
-    }
-  }
-
-  private queueEvent<K extends GameEventName>(name: K, payload: GameEventMap[K]): void {
-    if (this.dispatchDepth === 0) {
-      this.emitter.emit(name, payload);
-      return;
-    }
-    this.eventQueue.push(() => this.emitter.emit(name, payload));
-  }
-
-  private flushEvents(): void {
-    const queued = this.eventQueue.splice(0);
-    for (const emitQueuedEvent of queued) {
-      emitQueuedEvent();
     }
   }
 }

@@ -75,16 +75,24 @@ describe('GameCore', () => {
     expect(() => core.getGameComponent(Missing)).toThrow();
   });
 
-  test('dispatch notifies subscribers before flushing events', () => {
-    const core = new GameCore(harness);
+  test('events emitted during a tick are delivered before the render', () => {
     const order: string[] = [];
-    core.subscribe(() => order.push('state'));
+    class Emitter implements IGameComponent {
+      readonly id = 'emitter';
+      private gameContext!: GameContext;
+      initialize(gameContext: GameContext): void {
+        this.gameContext = gameContext;
+      }
+      onTick(): void {
+        this.gameContext.emit('leveledUp', { level: 2 });
+      }
+    }
+    const core = new GameCore({ ...harness, components: [Emitter] });
     core.on('leveledUp', () => order.push('event'));
+    core.subscribe(() => order.push('render'));
 
-    core.dispatch(() => {
-      core.getGameComponent(Counter).gameContext.emit('leveledUp', { level: 2 });
-    });
-    expect(order).toEqual(['state', 'event']);
+    core.tick(16);
+    expect(order).toEqual(['event', 'render']);
   });
 
   test('start/stop drives onTick via injected frames', () => {

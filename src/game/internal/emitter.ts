@@ -21,7 +21,7 @@ export class EventEmitter {
   emit<K extends GameEventName>(name: K, payload: GameEventMap[K]): void {
     const set = this.listeners.get(name);
     if (!set) return;
-    // Copy so a listener unsubscribing mid-dispatch can't disturb iteration.
+    // Copy so a listener unsubscribing mid-emit can't disturb iteration.
     for (const listener of [...set]) {
       listener(payload);
     }
