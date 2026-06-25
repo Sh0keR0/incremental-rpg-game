@@ -28,6 +28,9 @@ export class Combat implements IGameComponent {
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
     this.enemy = spawnEnemy(gameContext.rng);
+    gameContext.handle('attack', () => {
+      this.damageEnemy(this.gameContext.getGameComponent(Player).getAttack());
+    });
   }
 
   damageEnemy(amount: number): void {
