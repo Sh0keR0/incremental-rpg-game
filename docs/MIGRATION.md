@@ -10,6 +10,10 @@ The migration is staged so `master` stays green at every phase — `npm test`,
 `npm run lint`, and `npm run build` must all pass before a phase is considered
 done. Each phase is a self-contained commit.
 
+> **Status: complete.** All phases below (0–7) have landed; the engine now
+> matches `ARCHITECTURE.md`. This document is kept as the record of how the
+> migration was carried out.
+
 ## Target model in one paragraph
 
 Player input enqueues **commands** (intents). The always-on tick drains commands,
@@ -86,13 +90,15 @@ value). There is no FX phase and no `dispatch`.
   regression test asserting `unspentPoints` is updated in the same snapshot as the
   level-up.
 
-### Phase 6 — Order-independence discipline + cascade guard (provisional)
+### Phase 6 — Order-independence discipline + cascade guard
 - Audit all event handlers against the three rules in ARCHITECTURE.md
-  ("Events fire in an unspecified order").
-- Add a dev-only cascade-depth guard in `emit` that throws past a sane limit, to
-  catch accidental cycles. **Pending the open decision (#3)** — keep it behind a
-  dev flag and easy to tune/remove.
-- Optional: a dev-only event log to trace cascades.
+  ("Events fire in an unspecified order"). Result: the `enemyDefeated` reactions
+  (Player, Inventory) are commutative and `leveledUp → PlayerStats` is a
+  fact-chain — no handler relies on listener order.
+- Add a cascade-depth guard in `emit`. Per decision #3 it is **optional and
+  log-only**: it warns once per top-level cascade past `cascadeWarnDepth`
+  (default 50, `0` disables) and never throws. The warn sink is injectable for
+  tests.
 
 ### Phase 7 — Cleanup
 - Delete dead code (old `dispatch`, queue fields, unused FX wiring).
@@ -114,7 +120,8 @@ value). There is no FX phase and no `dispatch`.
   prefer driving tests by an enqueued command stream + fixed tick — this is the
   payoff and the best regression net for the rewrite.
 
-## Open decisions (carry forward)
+## Resolved decisions
 
-- **#3 Cascade bounding** — depth guard limit and whether to also forbid certain
-  re-emits statically. Provisional default in Phase 6; not yet locked.
+- **#3 Cascade bounding** — resolved: the guard is **optional and log-only**, not
+  enforced. It warns once per top-level cascade past `cascadeWarnDepth` (default
+  50, `0` disables) and never throws. No static re-emit restrictions.

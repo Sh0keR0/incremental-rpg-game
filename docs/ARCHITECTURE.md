@@ -3,13 +3,10 @@
 How the game is structured. This is the source of truth for the engine design;
 `CLAUDE.md` links here.
 
-> **Status: migration in progress.** This document describes the **target**
-> architecture — an events-first engine driven by a command queue and a
-> single render-per-tick boundary. The code is being migrated from the previous
-> `dispatch`/FX-flush engine to this model in phases. Until every phase in
-> **[docs/MIGRATION.md](MIGRATION.md)** is checked off, parts of `src/game`
-> still reflect the old design. When the two disagree, this document is the
-> intent and `MIGRATION.md` tracks what's actually landed.
+> This events-first engine — a command queue, an always-on tick, and
+> synchronous order-independent events with no `dispatch`/FX layer — is the
+> engine as it stands. **[docs/MIGRATION.md](MIGRATION.md)** records how it got
+> here from the earlier `dispatch`/FX-flush design.
 
 ## Big picture
 
@@ -112,13 +109,14 @@ Ordering you *do* get for free: a component that mutates its own state and
 sees the updated owner. Sequencing therefore comes from chaining facts
 (`enemyDefeated → leveledUp → pointsAwarded`), not from listener order.
 
-### Bounding cascades — provisional
+### Bounding cascades
 
-> **Open decision.** How aggressively to bound synchronous event cascades is
-> not finalized. The working default: events represent facts, and a handler
-> must not emit an event that re-triggers itself (no cycles), plus a dev-only
-> guard that throws if cascade depth exceeds a sane limit. Revisit before the
-> discipline is locked into code.
+Events represent facts, and a handler must not emit an event that re-triggers
+itself (no cycles). To surface accidental cycles in dev, `GameCore` accepts an
+optional `cascadeWarnDepth` (default 50; `0` disables): when a synchronous
+cascade nests past it, the emitter **logs a single warning** per top-level
+cascade. The guard is a diagnostic only — it never throws and never enforces a
+limit.
 
 ## IGameComponent
 

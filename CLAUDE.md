@@ -31,13 +31,12 @@ The game runs on a **component-based engine**. Full design and conventions live
 in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — read it before changing the
 engine.
 
-> The engine is mid-migration to an **events-first** model (command queue +
-> always-on tick + synchronous, order-independent events, no `dispatch`/FX).
-> `ARCHITECTURE.md` is the target; **[docs/MIGRATION.md](docs/MIGRATION.md)**
-> tracks what has actually landed. When code and the target doc disagree, the
-> migration plan says which phase you're in.
+> The engine runs an **events-first** model (command queue + always-on tick +
+> synchronous, order-independent events, no `dispatch`/FX). `ARCHITECTURE.md`
+> describes it; **[docs/MIGRATION.md](docs/MIGRATION.md)** records how it got
+> there from the earlier `dispatch`/FX design.
 
-The essentials (target model):
+The essentials:
 
 - **`GameCore`** (`src/game/GameCore.ts`) — the reusable, game-agnostic engine:
   owns the always-running loop, creates/holds components, drains the command
