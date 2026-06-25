@@ -274,3 +274,94 @@ re-exports whatever the UI needs.
 
 Keep game rules in components/`systems` (pure, fully tested per `CLAUDE.md`);
 keep the UI free of game logic.
+
+## Testing the engine
+
+`CLAUDE.md` covers the testing *philosophy* (what to test, what not to). This is
+the engine-specific *how-to*: the seams, the patterns, and the traps unique to
+the command/tick/event model. The test files cited below are the canonical,
+runnable examples.
+
+### Deterministic seams
+
+`GameCore` / `createGame` take injectable functions so a test owns time,
+randomness, and the frame clock — never reach for real timers or `Math.random`:
+
+- `rng` — the RNG. Inject a fixed function (`() => 0`) for deterministic rolls.
+- `now` — the clock read each frame. Inject a manual counter for an exact `dt`.
+- `requestFrame` / `cancelFrame` — the frame scheduler. Inject a capture-and-step
+  pump (below) instead of `requestAnimationFrame`.
+- `cascadeWarnDepth` — the cascade-guard threshold (`0` disables); the emitter's
+  warn sink is injectable when you want to assert it logged.
+
+### Three test levels — pick the lowest that covers the rule
+
+1. **Pure rules → test the `systems/` function directly.** Progression math,
+   formulas, save round-trips. No engine, no context.
+   (`systems/progression.test.ts`)
+2. **One component → `makeTestContext`.** Drive a single component in isolation
+   with a faithful fake context (below). (`components/*.test.ts`)
+3. **Cross-component flow → a real `createGame` integration + frame pump.** When
+   the behaviour spans components reacting to each other's events (kill → reward,
+   level-up → points). (`createGame.test.ts`) **Do not** fake sibling components
+   with `getGameComponent` stubs to test a cross-component flow — it's brittle (it
+   broke the moment rewards moved to events). Use a real integration.
+
+### Driving ticks
+
+The loop always runs and input batches to the next tick, so an integration test
+injects a manual frame pump — a captured `requestFrame` callback plus a `now`
+counter, started once, then stepped. Enqueue via an action, then `tick()`:
+
+```ts
+function newGame() {
+  let queuedFrame: (() => void) | null = null;
+  let clock = 0;
+  const game = createGame({
+    rng: () => 0,
+    now: () => clock,
+    requestFrame: (callback) => { queuedFrame = callback; return 1; },
+    cancelFrame: () => { queuedFrame = null; },
+  });
+  game.start();
+  const tick = (deltaMs = 16): void => {
+    clock += deltaMs;
+    const frame = queuedFrame;
+    queuedFrame = null;
+    frame?.();
+  };
+  return { game, tick };
+}
+
+game.actions.attack(); // enqueues a command
+tick();                // drains it, runs the frame, renders once
+```
+
+### Mocking one component: `makeTestContext`
+
+`src/game/testing/makeTestContext.ts` is the one canonical fake `GameContext`.
+Construct it, `initialize` the component with its `gameContext`, then:
+
+- `events` — facts the component **emitted**, in order (assert against this).
+- `commands` — commands it **enqueued**.
+- `simulateEvent(name, payload)` — deliver an **incoming** fact to the listeners
+  the component registered via `on()`; this is how you trigger a reaction.
+- `runCommand(name, payload)` — invoke the handler it registered via `handle()`.
+- `getGameComponent` — throws by default; pass an override only if the unit under
+  test queries another component.
+
+The key distinction: **`emit` captures, it does not deliver.** Feed a component
+its inputs with `simulateEvent` and read its outputs from `events` — that keeps
+the unit isolated. If you need a real cascade, that's a level-3 integration.
+
+### What to avoid
+
+- **Relying on event listener order.** The engine guarantees none (see "Events
+  fire in an unspecified order"); a test asserting call order between two
+  listeners encodes a forbidden assumption.
+- **Reading state right after an action without ticking.** Commands batch — the
+  change isn't visible until the next `tick()`.
+- **Real `requestAnimationFrame` / `performance.now`.** Non-deterministic and
+  async; always inject them.
+- **Reaching into private component fields.** Assert via `getState()`, public
+  query methods, or emitted `events`.

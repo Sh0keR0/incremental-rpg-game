@@ -114,6 +114,11 @@ Vitest is the test runner. The goal is confidence in the game's *rules and
 math*, not coverage for its own sake — test the logic that would silently
 break the game if it were wrong.
 
+> This section is the testing *philosophy*. For the engine-specific *how-to* —
+> the deterministic seams, driving ticks, the `makeTestContext` helper, and the
+> anti-patterns — see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** →
+> "Testing the engine".
+
 **What to test:**
 
 - **Progression math** — XP curves, level-up thresholds, damage/cost formulas,
