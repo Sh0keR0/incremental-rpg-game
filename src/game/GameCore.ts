@@ -16,11 +16,14 @@ export interface GameCoreOptions {
   now?: () => number;
   requestFrame?: (callback: () => void) => number;
   cancelFrame?: (handle: number) => void;
+  // Optional dev aid: log (never throw) when an event cascade nests this deep.
+  // 0 disables it. See EventEmitter.
+  cascadeWarnDepth?: number;
 }
 
 export class GameCore {
   private readonly components = new Map<ComponentClass, IGameComponent>();
-  private readonly emitter = new EventEmitter();
+  private readonly emitter: EventEmitter;
   private readonly commandQueue = new CommandQueue();
   private readonly stateListeners = new Set<() => void>();
   private readonly gameContext: GameContext;
@@ -34,6 +37,7 @@ export class GameCore {
 
   constructor(options: GameCoreOptions) {
     const rng = options.rng ?? Math.random;
+    this.emitter = new EventEmitter({ warnDepth: options.cascadeWarnDepth });
     this.now = options.now ?? (() => performance.now());
     this.requestFrame = options.requestFrame ?? ((callback) => requestAnimationFrame(callback));
     this.cancelFrame = options.cancelFrame ?? ((handle) => cancelAnimationFrame(handle));
