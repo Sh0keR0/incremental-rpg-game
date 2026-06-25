@@ -1,7 +1,6 @@
 import { spawnEnemy } from '../content/enemies.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
 import { Player } from './Player.ts';
-import Inventory from './Inventory.ts';
 
 export interface DroppableItem {
   itemId: string;
@@ -46,16 +45,10 @@ export class Combat implements IGameComponent {
   }
 
   private defeatEnemy() {
-    this.gameContext.getGameComponent(Player).gainExp(this.enemy.expReward);
-
-    const drops = this.rollDrops();
-    for (const drop of drops) {
-      this.gameContext.getGameComponent(Inventory).add(drop.itemId);
-    }
     this.gameContext.emit('enemyDefeated', {
       name: this.enemy.name,
       expReward: this.enemy.expReward,
-      drops: drops,
+      drops: this.rollDrops(),
     });
 
     this.enemy = spawnEnemy(this.gameContext.rng);

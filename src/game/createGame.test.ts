@@ -81,6 +81,24 @@ describe('createGame', () => {
     expect(game.getState().combat.enemy.hp).toBe(game.getState().combat.enemy.maxHp); // fresh enemy
   });
 
+  test('killing an enemy drops its loot into the inventory', () => {
+    const { game, tick } = newGame();
+    const { attack } = game.getState().player;
+    const enemy = game.getState().combat.enemy;
+    const hitsToKill = Math.ceil(enemy.maxHp / attack);
+
+    for (let hit = 0; hit < hitsToKill; hit++) {
+      game.actions.attack();
+      tick();
+    }
+
+    // Inventory reacts to enemyDefeated; rng: () => 0 rolls every drop.
+    const itemsInBag = game.getState().inventory.slots.flat().filter(Boolean);
+    for (const drop of enemy.drops) {
+      expect(itemsInBag).toContain(drop.itemId);
+    }
+  });
+
   test('accumulated EXP eventually levels the player up', () => {
     const { game, tick } = newGame();
     const onLevelUp = vi.fn();
@@ -113,6 +131,8 @@ describe('createGame', () => {
       tick();
     }
 
+    // Synchronous events: the point awarded by the leveledUp reaction lands in
+    // the same tick/snapshot as the level-up — no one-frame lag.
     expect(game.getState().stats.unspentPoints).toBe(1);
 
     game.actions.allocateStat('strength');
