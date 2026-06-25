@@ -1,6 +1,9 @@
+import { CommandQueue } from './internal/commandQueue.ts';
 import { EventEmitter } from './internal/emitter.ts';
 import type {
   ComponentClass,
+  GameCommandMap,
+  GameCommandName,
   GameContext,
   GameEventMap,
   GameEventName,
@@ -18,6 +21,7 @@ export interface GameCoreOptions {
 export class GameCore {
   private readonly components = new Map<ComponentClass, IGameComponent>();
   private readonly emitter = new EventEmitter();
+  private readonly commandQueue = new CommandQueue();
   private readonly stateListeners = new Set<() => void>();
   private readonly gameContext: GameContext;
 
@@ -40,6 +44,8 @@ export class GameCore {
       rng,
       emit: (name, payload) => this.queueEvent(name, payload),
       on: (name, listener) => this.emitter.on(name, listener),
+      enqueue: (name, payload) => this.commandQueue.enqueue(name, payload),
+      handle: (name, handler) => this.commandQueue.handle(name, handler),
       getGameComponent: (componentClass) => this.getGameComponent(componentClass),
     };
 
@@ -61,6 +67,14 @@ export class GameCore {
 
   on<K extends GameEventName>(name: K, listener: (payload: GameEventMap[K]) => void): () => void {
     return this.emitter.on(name, listener);
+  }
+
+  enqueueCommand<K extends GameCommandName>(name: K, payload: GameCommandMap[K]): void {
+    this.commandQueue.enqueue(name, payload);
+  }
+
+  drainCommands(): void {
+    this.commandQueue.drain();
   }
 
   subscribe(listener: () => void): () => void {

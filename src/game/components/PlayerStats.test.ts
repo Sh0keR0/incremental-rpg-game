@@ -23,6 +23,8 @@ function makeContext() {
         set.delete(listener as (payload: unknown) => void);
       };
     },
+    enqueue: () => {},
+    handle: () => {},
     getGameComponent: () => {
       throw new Error('getGameComponent not available in this test');
     },

@@ -15,6 +15,8 @@ function makeContext(): { gameContext: GameContext; events: Captured[] } {
       events.push({ name, payload });
     },
     on: () => () => {},
+    enqueue: () => {},
+    handle: () => {},
     getGameComponent: () => {
       throw new Error('getGameComponent not available in this test');
     },

@@ -101,6 +101,22 @@ describe('GameCore', () => {
     expect(counter.elapsed).toBe(26);
   });
 
+  test('routes an enqueued command to a handler a component registered in initialize', () => {
+    const attacks: number[] = [];
+    class Attacker implements IGameComponent {
+      readonly id = 'attacker';
+      initialize(gameContext: GameContext): void {
+        gameContext.handle('attack', () => attacks.push(1));
+      }
+    }
+    const core = new GameCore({ ...harness, components: [Attacker] });
+
+    core.enqueueCommand('attack', {});
+    expect(attacks).toEqual([]); // not applied until drained
+    core.drainCommands();
+    expect(attacks).toEqual([1]);
+  });
+
   test('save aggregates by id and load distributes back', () => {
     const core = new GameCore(harness);
     core.start();

@@ -33,6 +33,8 @@ function makeContext(): {
       events.push({ name, payload });
     },
     on: () => () => {},
+    enqueue: () => {},
+    handle: () => {},
     getGameComponent: ((component: any) =>
       component === Player
         ? { id: 'player', gainExp }

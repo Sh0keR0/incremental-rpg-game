@@ -85,21 +85,6 @@ synchronously, by the time `tick` returns the whole cascade has settled — so t
 UI renders exactly once, against fully-settled state. There is no separate
 post-render phase.
 
-### Why there's no `dispatch` and no FX queue
-
-The previous engine queued events and flushed them *after* the render, as a
-"transient FX" phase. That layer is gone:
-
-- **FX are gone.** Floating numbers / toasts are not a privileged concept. If
-  the UI wants to react to something, it subscribes to the relevant event like
-  any other listener (see [UI integration](#ui-integration)).
-- **No deferred flush.** Events fire synchronously at `emit()`. Everything a
-  tick triggers happens *before* the render, so a reaction can never land one
-  frame late.
-- **The tick is the transaction.** The only job `dispatch` still did — "render
-  once, after everything settles" — is now just the tick boundary. No separate
-  primitive is needed.
-
 ## Events fire in an unspecified order
 
 This is the load-bearing constraint of the whole design. When an event is
