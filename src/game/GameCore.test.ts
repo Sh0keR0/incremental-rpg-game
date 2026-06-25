@@ -75,16 +75,24 @@ describe('GameCore', () => {
     expect(() => core.getGameComponent(Missing)).toThrow();
   });
 
-  test('dispatch notifies subscribers before flushing events', () => {
-    const core = new GameCore(harness);
+  test('events emitted during a tick are delivered before the render', () => {
     const order: string[] = [];
-    core.subscribe(() => order.push('state'));
+    class Emitter implements IGameComponent {
+      readonly id = 'emitter';
+      private gameContext!: GameContext;
+      initialize(gameContext: GameContext): void {
+        this.gameContext = gameContext;
+      }
+      onTick(): void {
+        this.gameContext.emit('leveledUp', { level: 2 });
+      }
+    }
+    const core = new GameCore({ ...harness, components: [Emitter] });
     core.on('leveledUp', () => order.push('event'));
+    core.subscribe(() => order.push('render'));
 
-    core.dispatch(() => {
-      core.getGameComponent(Counter).gameContext.emit('leveledUp', { level: 2 });
-    });
-    expect(order).toEqual(['state', 'event']);
+    core.tick(16);
+    expect(order).toEqual(['event', 'render']);
   });
 
   test('start/stop drives onTick via injected frames', () => {
@@ -99,6 +107,50 @@ describe('GameCore', () => {
     core.stop();
     harness.step(100);
     expect(counter.elapsed).toBe(26);
+  });
+
+  test('routes an enqueued command to a handler a component registered in initialize', () => {
+    const attacks: number[] = [];
+    class Attacker implements IGameComponent {
+      readonly id = 'attacker';
+      initialize(gameContext: GameContext): void {
+        gameContext.handle('attack', () => attacks.push(1));
+      }
+    }
+    const core = new GameCore({ ...harness, components: [Attacker] });
+
+    core.enqueueCommand('attack', {});
+    expect(attacks).toEqual([]); // not applied until drained
+    core.drainCommands();
+    expect(attacks).toEqual([1]);
+  });
+
+  test('tick drains queued commands before running onTick', () => {
+    const order: string[] = [];
+    class Recorder implements IGameComponent {
+      readonly id = 'recorder';
+      initialize(gameContext: GameContext): void {
+        gameContext.handle('attack', () => order.push('command'));
+      }
+      onTick(): void {
+        order.push('tick');
+      }
+    }
+    const core = new GameCore({ ...harness, components: [Recorder] });
+
+    core.enqueueCommand('attack', {});
+    core.tick(16);
+    expect(order).toEqual(['command', 'tick']);
+  });
+
+  test('tick renders subscribers exactly once', () => {
+    const core = new GameCore({ ...harness, components: [Noop] });
+    let renders = 0;
+    core.subscribe(() => {
+      renders += 1;
+    });
+    core.tick(16);
+    expect(renders).toBe(1);
   });
 
   test('save aggregates by id and load distributes back', () => {

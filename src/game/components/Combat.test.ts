@@ -1,12 +1,6 @@
-import { describe, expect, test, vi } from 'vitest';
-import type { GameContext } from '../types.ts';
+import { describe, expect, test } from 'vitest';
+import { makeTestContext } from '../testing/makeTestContext.ts';
 import { Combat, type Enemy } from './Combat.ts';
-import { Player } from './Player.ts';
-
-interface Captured {
-  name: string;
-  payload: unknown;
-}
 
 // A self-contained enemy so these tests don't depend on the shipping ENEMY_POOL,
 // whose stats and drops change during development.
@@ -18,31 +12,8 @@ const TEST_ENEMY: Enemy = {
   drops: [{ itemId: 'WoodenSword', chance: 1 }],
 };
 
-function makeContext(): {
-  gameContext: GameContext;
-  events: Captured[];
-  gainExp: ReturnType<typeof vi.fn>;
-  add: ReturnType<typeof vi.fn>;
-} {
-  const events: Captured[] = [];
-  const gainExp = vi.fn();
-  const add = vi.fn();
-  const gameContext: GameContext = {
-    rng: () => 0, // deterministic respawn + guaranteed (chance 1) drop rolls
-    emit: (name, payload) => {
-      events.push({ name, payload });
-    },
-    on: () => () => {},
-    getGameComponent: ((component: any) =>
-      component === Player
-        ? { id: 'player', gainExp }
-        : { id: 'inventory', add }) as unknown as GameContext['getGameComponent'],
-  };
-  return { gameContext, events, gainExp, add };
-}
-
 function setup(enemy: Enemy = TEST_ENEMY) {
-  const context = makeContext();
+  const context = makeTestContext(); // rng: () => 0 → deterministic respawn + guaranteed drops
   const combat = new Combat();
   combat.initialize(context.gameContext);
   combat.load({ enemy: { ...enemy } }); // replace the pool-spawned enemy with our fixture
@@ -51,7 +22,7 @@ function setup(enemy: Enemy = TEST_ENEMY) {
 
 describe('Combat', () => {
   test('spawns a full-HP enemy on initialize', () => {
-    const { gameContext } = makeContext();
+    const { gameContext } = makeTestContext();
     const combat = new Combat();
     combat.initialize(gameContext);
     const { enemy } = combat.getState();
@@ -60,7 +31,7 @@ describe('Combat', () => {
   });
 
   test('non-lethal hit lowers HP and emits only attacked', () => {
-    const { combat, events, gainExp } = setup();
+    const { combat, events } = setup();
     combat.damageEnemy(5);
     expect(combat.getState().enemy.hp).toBe(TEST_ENEMY.maxHp - 5);
     expect(events).toEqual([
@@ -69,20 +40,23 @@ describe('Combat', () => {
         payload: { damage: 5, enemyHp: TEST_ENEMY.maxHp - 5, enemyName: TEST_ENEMY.name },
       },
     ]);
-    expect(gainExp).not.toHaveBeenCalled();
   });
 
-  test('lethal hit rewards EXP, drops loot to inventory, and respawns', () => {
-    const { combat, events, gainExp, add } = setup();
+  test('lethal hit announces enemyDefeated with reward + drops, then respawns', () => {
+    const { combat, events } = setup();
     combat.damageEnemy(TEST_ENEMY.maxHp);
 
-    expect(gainExp).toHaveBeenCalledWith(TEST_ENEMY.expReward);
-    expect(add).toHaveBeenCalledWith('WoodenSword');
     expect(events.map((event) => event.name)).toEqual([
       'attacked',
       'enemyDefeated',
       'enemySpawned',
     ]);
+    const defeated = events.find((event) => event.name === 'enemyDefeated');
+    expect(defeated?.payload).toEqual({
+      name: TEST_ENEMY.name,
+      expReward: TEST_ENEMY.expReward,
+      drops: TEST_ENEMY.drops, // rng: () => 0 rolls every chance-1 drop
+    });
     const respawned = combat.getState().enemy;
     expect(respawned.hp).toBe(respawned.maxHp);
   });

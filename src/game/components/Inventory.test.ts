@@ -1,32 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import type { GameContext } from '../types.ts';
+import { makeTestContext } from '../testing/makeTestContext.ts';
 import Inventory from './Inventory.ts';
 
-interface Captured {
-  name: string;
-  payload: unknown;
-}
-
-function makeContext(): { gameContext: GameContext; events: Captured[] } {
-  const events: Captured[] = [];
-  const gameContext: GameContext = {
-    rng: () => 0,
-    emit: (name, payload) => {
-      events.push({ name, payload });
-    },
-    on: () => () => {},
-    getGameComponent: () => {
-      throw new Error('getGameComponent not available in this test');
-    },
-  };
-  return { gameContext, events };
-}
-
-function makeInventory(): { inventory: Inventory; events: Captured[] } {
-  const { gameContext, events } = makeContext();
+function makeInventory() {
+  const { gameContext, events, simulateEvent } = makeTestContext();
   const inventory = new Inventory();
   inventory.initialize(gameContext);
-  return { inventory, events };
+  return { inventory, events, simulateEvent };
 }
 
 describe('Inventory', () => {

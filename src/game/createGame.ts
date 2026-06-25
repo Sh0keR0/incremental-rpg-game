@@ -46,16 +46,10 @@ export function createGame(options: GameOptions = {}): Game {
     },
     actions: {
       attack() {
-        core.dispatch(() => {
-          const player = core.getGameComponent(Player);
-          const combat = core.getGameComponent(Combat);
-          combat.damageEnemy(player.getAttack());
-        });
+        core.enqueueCommand('attack', {});
       },
       allocateStat(statName: StatName) {
-        core.dispatch(() => {
-          core.getGameComponent(PlayerStats).allocateStat(statName);
-        });
+        core.enqueueCommand('allocateStat', { statName });
       },
     },
     start() {

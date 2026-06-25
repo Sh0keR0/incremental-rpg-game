@@ -25,6 +25,11 @@ class Inventory implements IGameComponent {
 
   initialize(gameContext: GameContext) {
     this.gameContext = gameContext;
+    gameContext.on('enemyDefeated', ({ drops }) => {
+      for (const drop of drops) {
+        this.add(drop.itemId);
+      }
+    });
   }
 
   isInventoryFull(): boolean {
