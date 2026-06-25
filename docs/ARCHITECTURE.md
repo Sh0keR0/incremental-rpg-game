@@ -107,7 +107,7 @@ correct regardless of listener order. Three rules keep that true:
 Ordering you *do* get for free: a component that mutates its own state and
 **then** emits a fact emits it after the mutation, so any listener of that fact
 sees the updated owner. Sequencing therefore comes from chaining facts
-(`enemyDefeated → leveledUp → pointsAwarded`), not from listener order.
+(`enemyDefeated → leveledUp → statsChanged`), not from listener order.
 
 ### Bounding cascades
 
@@ -120,7 +120,8 @@ limit.
 
 ## IGameComponent
 
-A component is a plain class implementing:
+A component is a plain class implementing this interface (defined in `types.ts`,
+which is canonical if this drifts):
 
 ```ts
 interface IGameComponent {
@@ -141,15 +142,16 @@ Only `id` is required; implement the hooks you need.
 
 ### GameContext
 
-Passed to `initialize`; components keep the reference for later use:
+Passed to `initialize`; components keep the reference for later use. The exact
+signatures live in `types.ts` (canonical) — this is the shape:
 
 ```ts
 interface GameContext {
   rng(): number
   emit<K>(name: K, payload: GameEventMap[K]): void          // announce a fact
   on<K>(name: K, fn: (p: GameEventMap[K]) => void): () => void  // react to a fact
-  handle<K>(name: K, fn: (p: GameCommandMap[K]) => void): void  // own a command (exactly one handler)
   enqueue<K>(name: K, payload: GameCommandMap[K]): void      // request a command be run next drain
+  handle<K>(name: K, fn: (p: GameCommandMap[K]) => void): void  // own a command (exactly one handler)
   getGameComponent<T>(ctor: ComponentClass<T>): T            // query another component
 }
 ```
@@ -164,27 +166,25 @@ command handlers** (`handle`).
 
 ## Events (`GameEventMap`) and Commands (`GameCommandMap`)
 
-Both are centrally typed: one interface maps each name to its payload.
+Both are centrally typed in `types.ts`: one interface maps each name to its
+payload, so `emit`/`on` and `enqueue`/`handle` are fully type-checked against
+them. **`types.ts` is the authoritative, current list** — it's not duplicated
+here so it can't drift. The two maps look like, by way of illustration:
 
 ```ts
 interface GameEventMap {        // facts: "X happened"
-  attacked:      { damage: number; enemyHp: number; enemyName: string }
   enemyDefeated: { name: string; expReward: number; drops: DroppableItem[] }
-  expGained:     { amount: number; exp: number; expToNext: number }
   leveledUp:     { level: number }
-  enemySpawned:  { name: string; maxHp: number }
-  pointsAwarded: { unspentPoints: number }
-  inventoryUpdated: { inventory: InventoryData }
+  // …attacked, expGained, enemySpawned, inventoryUpdated, statsChanged, …
 }
 
 interface GameCommandMap {      // intents: "please do X"
-  attack:       {}
   allocateStat: { statName: StatName }
+  // …attack, …
 }
 ```
 
-`emit`/`on` and `enqueue`/`handle` are fully type-checked against these maps. Add
-an event or command by adding one line to the relevant map.
+Add an event or command by adding one line to the relevant map in `types.ts`.
 
 ## Worked example: the Attack flow
 
@@ -206,7 +206,7 @@ player's attack.
    - `Inventory` reacts → adds `payload.drops` → emits `inventoryUpdated`.
    These two are commutative; neither reads the other's state.
 6. `PlayerStats` reacts to the **`leveledUp` fact** → `awardPoints(1)` → emits
-   `pointsAwarded`. (Correct ordering comes from the chain: Player updates its
+   `statsChanged`. (Correct ordering comes from the chain: Player updates its
    level *then* emits `leveledUp`, so the level is already current here — no
    reliance on listener order.)
 7. The cascade settles; `tick` returns; the UI renders once against final state.
