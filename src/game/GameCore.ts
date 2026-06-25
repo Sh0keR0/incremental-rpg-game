@@ -84,6 +84,18 @@ export class GameCore {
     };
   }
 
+  // One frame of the game: apply queued player intents, then run time-based
+  // progression. Wrapped in a single dispatch so it renders once and (for now)
+  // still defers events. Commands drain before onTick so input lands this frame.
+  tick(deltaMs: number): void {
+    this.dispatch(() => {
+      this.drainCommands();
+      for (const component of this.components.values()) {
+        component.onTick?.(deltaMs);
+      }
+    });
+  }
+
   // Transaction: run the mutation, then notify subscribers, then flush events,
   // so the UI renders settled state before transient FX fire.
   dispatch(mutator: () => void): void {
@@ -108,11 +120,7 @@ export class GameCore {
       const current = this.now();
       const deltaMs = current - this.lastNow;
       this.lastNow = current;
-      this.dispatch(() => {
-        for (const component of this.components.values()) {
-          component.onTick?.(deltaMs);
-        }
-      });
+      this.tick(deltaMs);
       this.frameHandle = this.requestFrame(frame);
     };
     this.frameHandle = this.requestFrame(frame);

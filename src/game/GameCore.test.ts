@@ -117,6 +117,34 @@ describe('GameCore', () => {
     expect(attacks).toEqual([1]);
   });
 
+  test('tick drains queued commands before running onTick', () => {
+    const order: string[] = [];
+    class Recorder implements IGameComponent {
+      readonly id = 'recorder';
+      initialize(gameContext: GameContext): void {
+        gameContext.handle('attack', () => order.push('command'));
+      }
+      onTick(): void {
+        order.push('tick');
+      }
+    }
+    const core = new GameCore({ ...harness, components: [Recorder] });
+
+    core.enqueueCommand('attack', {});
+    core.tick(16);
+    expect(order).toEqual(['command', 'tick']);
+  });
+
+  test('tick renders subscribers exactly once', () => {
+    const core = new GameCore({ ...harness, components: [Noop] });
+    let renders = 0;
+    core.subscribe(() => {
+      renders += 1;
+    });
+    core.tick(16);
+    expect(renders).toBe(1);
+  });
+
   test('save aggregates by id and load distributes back', () => {
     const core = new GameCore(harness);
     core.start();
