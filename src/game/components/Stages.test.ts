@@ -1,47 +1,33 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { STAGES } from '../content/stages.ts';
-import type { GameContext } from '../types.ts';
-import { Combat } from './Combat.ts';
+import { makeTestContext, type TestContext } from '../testing/makeTestContext.ts';
 import { Stages } from './Stages.ts';
 
-interface Captured {
-  name: string;
-  payload: unknown;
-}
+const FIRST = STAGES[0];
+const SECOND = STAGES[1];
 
-function makeContext(): {
-  gameContext: GameContext;
-  events: Captured[];
-  spawnNormalEnemy: ReturnType<typeof vi.fn>;
-} {
-  const events: Captured[] = [];
-  const spawnNormalEnemy = vi.fn();
-  const gameContext: GameContext = {
-    rng: () => 0,
-    emit: (name, payload) => {
-      events.push({ name, payload });
-    },
-    on: () => () => {},
-    getGameComponent: ((component: unknown) =>
-      component === Combat
-        ? { id: 'combat', spawnNormalEnemy }
-        : undefined) as unknown as GameContext['getGameComponent'],
-  };
-  return { gameContext, events, spawnNormalEnemy };
-}
+// enemyDefeated facts the reactions consume; only `isBoss` matters to Stages.
+const NORMAL_DEFEAT = { name: 'grunt', expReward: 0, drops: [], isBoss: false };
+const BOSS_DEFEAT = { ...NORMAL_DEFEAT, isBoss: true };
 
 function setup() {
-  const context = makeContext();
+  const context = makeTestContext();
   const stages = new Stages();
   stages.initialize(context.gameContext);
   return { stages, ...context };
 }
 
-const FIRST = STAGES[0];
-const SECOND = STAGES[1];
+// Drive the real on('enemyDefeated') wiring to walk a stage to its boss unlock.
+function unlockBoss(context: TestContext, count = FIRST.killsToUnlockBoss): void {
+  for (let kill = 0; kill < count; kill++) context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+}
 
-function unlockBoss(stages: Stages): void {
-  for (let kill = 0; kill < FIRST.killsToUnlockBoss; kill++) stages.registerNormalKill();
+// Unlock + start + win the current stage's boss through the command/event seams.
+function clearCurrentBoss(context: TestContext, stages: Stages): void {
+  const stage = stages.getCurrentStage();
+  unlockBoss(context, stage.killsToUnlockBoss);
+  context.runCommand('fightBoss', {});
+  context.simulateEvent('enemyDefeated', BOSS_DEFEAT);
 }
 
 describe('Stages', () => {
@@ -54,34 +40,38 @@ describe('Stages', () => {
     ]);
   });
 
-  test('unlocks the boss once the kill threshold is reached', () => {
-    const { stages, events } = setup();
+  test('reacting to normal kills unlocks the boss at the threshold', () => {
+    const context = setup();
+    const { stages } = context;
     for (let kill = 0; kill < FIRST.killsToUnlockBoss - 1; kill++) {
-      stages.registerNormalKill();
+      context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
       expect(stages.canFightBoss()).toBe(false);
     }
-    stages.registerNormalKill();
+    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
     expect(stages.canFightBoss()).toBe(true);
-    expect(events).toContainEqual({ name: 'bossUnlocked', payload: { stageName: FIRST.name } });
+    expect(context.events).toContainEqual({
+      name: 'bossUnlocked',
+      payload: { stageName: FIRST.name },
+    });
   });
 
   test('boss unlock is sticky and kill count stops at the threshold', () => {
-    const { stages } = setup();
-    unlockBoss(stages);
-    stages.registerNormalKill();
-    stages.registerNormalKill();
-    expect(stages.getState().kills).toBe(FIRST.killsToUnlockBoss);
-    expect(stages.getState().bossUnlocked).toBe(true);
+    const context = setup();
+    unlockBoss(context);
+    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+    expect(context.stages.getState().kills).toBe(FIRST.killsToUnlockBoss);
+    expect(context.stages.getState().bossUnlocked).toBe(true);
   });
 
-  test('beginBossFight enters boss mode with a full timer', () => {
-    const { stages, events } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
-    const state = stages.getState();
+  test('the fightBoss command enters boss mode with a full timer', () => {
+    const context = setup();
+    unlockBoss(context);
+    context.runCommand('fightBoss', {});
+    const state = context.stages.getState();
     expect(state.mode).toBe('boss');
     expect(state.bossTimeRemainingMs).toBe(FIRST.bossTimeLimitMs);
-    expect(events).toContainEqual({
+    expect(context.events).toContainEqual({
       name: 'bossStarted',
       payload: {
         name: FIRST.boss.name,
@@ -91,54 +81,59 @@ describe('Stages', () => {
     });
   });
 
-  test('onTick counts the boss timer down and fails when it expires', () => {
-    const { stages, events, spawnNormalEnemy } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
+  test('the fightBoss command does nothing while the boss is still locked', () => {
+    const context = setup();
+    context.runCommand('fightBoss', {});
+    expect(context.stages.getState().mode).toBe('normal');
+    expect(context.events.find((event) => event.name === 'bossStarted')).toBeUndefined();
+  });
+
+  test('onTick counts the boss timer down and fails (emitting bossFailed) when it expires', () => {
+    const context = setup();
+    const { stages } = context;
+    unlockBoss(context);
+    context.runCommand('fightBoss', {});
     stages.onTick(FIRST.bossTimeLimitMs - 1000);
     expect(stages.getState().mode).toBe('boss');
     stages.onTick(2000);
     expect(stages.getState().mode).toBe('normal');
-    expect(events).toContainEqual({ name: 'bossFailed', payload: { stageName: FIRST.name } });
-    expect(spawnNormalEnemy).toHaveBeenCalledOnce();
+    expect(context.events).toContainEqual({
+      name: 'bossFailed',
+      payload: { stageName: FIRST.name },
+    });
   });
 
   test('failing the boss keeps it unlocked for a retry', () => {
-    const { stages } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
+    const context = setup();
+    const { stages } = context;
+    unlockBoss(context);
+    context.runCommand('fightBoss', {});
     stages.onTick(FIRST.bossTimeLimitMs);
     expect(stages.canFightBoss()).toBe(true);
   });
 
-  test('completeBossFight unlocks and switches to the next stage', () => {
-    const { stages, events } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
-    stages.completeBossFight();
+  test('defeating the boss unlocks and switches to the next stage without emitting stageSelected', () => {
+    const context = setup();
+    const { stages } = context;
+    clearCurrentBoss(context, stages);
     const state = stages.getState();
     expect(state.currentStageId).toBe(SECOND.id);
     expect(state.mode).toBe('normal');
-    expect(events).toContainEqual({
+    expect(context.events).toContainEqual({
       name: 'stageUnlocked',
       payload: { stageId: SECOND.id, stageName: SECOND.name },
     });
+    // Combat respawns from the advanced stage itself, so no stageSelected here.
+    expect(context.events.find((event) => event.name === 'stageSelected')).toBeUndefined();
   });
 
   test('completing the final stage boss stays on the final stage', () => {
-    const { stages } = setup();
+    const context = setup();
+    const { stages } = context;
     const last = STAGES[STAGES.length - 1];
-    // Walk forward to the last stage by clearing each boss.
-    for (let index = 0; index < STAGES.length - 1; index++) {
-      for (let kill = 0; kill < STAGES[index].killsToUnlockBoss; kill++)
-        stages.registerNormalKill();
-      stages.beginBossFight();
-      stages.completeBossFight();
-    }
+    for (let index = 0; index < STAGES.length - 1; index++) clearCurrentBoss(context, stages);
     expect(stages.getState().currentStageId).toBe(last.id);
-    for (let kill = 0; kill < last.killsToUnlockBoss; kill++) stages.registerNormalKill();
-    stages.beginBossFight();
-    stages.completeBossFight();
+    clearCurrentBoss(context, stages);
     expect(stages.getState().currentStageId).toBe(last.id);
   });
 
@@ -148,15 +143,37 @@ describe('Stages', () => {
     expect(stages.getState().currentStageId).toBe(FIRST.id);
   });
 
+  test('the selectStage command switches to an unlocked stage and emits stageSelected', () => {
+    const context = setup();
+    const { stages } = context;
+    clearCurrentBoss(context, stages); // unlocks SECOND, now on SECOND
+    context.runCommand('selectStage', { stageId: FIRST.id });
+    expect(stages.getState().currentStageId).toBe(FIRST.id);
+    expect(context.events).toContainEqual({
+      name: 'stageSelected',
+      payload: { stageId: FIRST.id, stageName: FIRST.name },
+    });
+  });
+
   test('selectStage rejects switching during a boss fight', () => {
-    const { stages } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
-    stages.completeBossFight(); // unlocks SECOND, now on SECOND in normal mode
-    // Back to a boss fight on SECOND requires its own unlock; instead test the guard directly:
-    unlockBossFor(stages, SECOND.killsToUnlockBoss);
-    stages.beginBossFight();
+    const context = setup();
+    const { stages } = context;
+    clearCurrentBoss(context, stages); // on SECOND, FIRST behind it
+    unlockBoss(context, SECOND.killsToUnlockBoss);
+    context.runCommand('fightBoss', {});
     expect(stages.selectStage(FIRST.id)).toBe(false);
+  });
+
+  test('selectStage moves between unlocked stages and preserves their progress', () => {
+    const context = setup();
+    const { stages } = context;
+    clearCurrentBoss(context, stages); // on SECOND now
+    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+    expect(stages.selectStage(FIRST.id)).toBe(true);
+    expect(stages.getState().bossUnlocked).toBe(true); // FIRST stayed unlocked
+    expect(stages.selectStage(SECOND.id)).toBe(true);
+    expect(stages.getState().kills).toBe(2); // SECOND kept its own progress
   });
 
   test('exposes no navigable neighbors on the first stage with nothing else unlocked', () => {
@@ -166,11 +183,10 @@ describe('Stages', () => {
     expect(state.nextStageId).toBeUndefined();
   });
 
-  test('exposes the next stage once it is unlocked, and the prev stage from there', () => {
-    const { stages } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
-    stages.completeBossFight(); // unlocks + moves to SECOND
+  test('exposes the next stage once unlocked, and the prev stage from there', () => {
+    const context = setup();
+    const { stages } = context;
+    clearCurrentBoss(context, stages); // unlocks + moves to SECOND
 
     const onSecond = stages.getState();
     expect(onSecond.prevStageId).toBe(FIRST.id);
@@ -183,43 +199,23 @@ describe('Stages', () => {
   });
 
   test('exposes no navigable neighbors during a boss fight', () => {
-    const { stages } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
-    stages.completeBossFight(); // on SECOND, FIRST behind it
-    unlockBossFor(stages, SECOND.killsToUnlockBoss);
-    stages.beginBossFight();
+    const context = setup();
+    const { stages } = context;
+    clearCurrentBoss(context, stages); // on SECOND, FIRST behind it
+    unlockBoss(context, SECOND.killsToUnlockBoss);
+    context.runCommand('fightBoss', {});
     const state = stages.getState();
     expect(state.prevStageId).toBeUndefined();
     expect(state.nextStageId).toBeUndefined();
   });
-
-  test('selectStage moves between unlocked stages and preserves their progress', () => {
-    const { stages } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
-    stages.completeBossFight(); // on SECOND now
-    stages.registerNormalKill();
-    stages.registerNormalKill();
-    expect(stages.selectStage(FIRST.id)).toBe(true);
-    expect(stages.getState().bossUnlocked).toBe(true); // FIRST stayed unlocked
-    expect(stages.selectStage(SECOND.id)).toBe(true);
-    expect(stages.getState().kills).toBe(2); // SECOND kept its own progress
-  });
 });
-
-function unlockBossFor(stages: Stages, kills: number): void {
-  for (let kill = 0; kill < kills; kill++) stages.registerNormalKill();
-}
 
 describe('Stages save/load robustness', () => {
   test('round-trips progress through save/load', () => {
-    const { stages } = setup();
-    unlockBoss(stages);
-    stages.beginBossFight();
-    stages.completeBossFight();
-    stages.registerNormalKill();
-    const saved = stages.save();
+    const context = setup();
+    clearCurrentBoss(context, context.stages);
+    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+    const saved = context.stages.save();
 
     const fresh = setup().stages;
     fresh.load(saved);
@@ -243,7 +239,7 @@ describe('Stages save/load robustness', () => {
     const unlocked = stages
       .getState()
       .stages.filter((stage) => stage.unlocked)
-      .map((s) => s.id);
+      .map((stage) => stage.id);
     expect(unlocked).toEqual([FIRST.id]);
   });
 
@@ -253,7 +249,7 @@ describe('Stages save/load robustness', () => {
     const unlocked = stages
       .getState()
       .stages.filter((stage) => stage.unlocked)
-      .map((s) => s.id);
+      .map((stage) => stage.id);
     expect(unlocked).toContain(FIRST.id);
   });
 });

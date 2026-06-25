@@ -1,7 +1,6 @@
 import type { EnemyTemplate } from '../content/enemies.ts';
 import { getNextStageId, getStageById, type StageDefinition, STAGES } from '../content/stages.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
-import { Combat } from './Combat.ts';
 
 export type StageMode = 'normal' | 'boss';
 
@@ -43,6 +42,16 @@ export class Stages implements IGameComponent {
 
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
+    gameContext.on('enemyDefeated', ({ isBoss }) => {
+      if (isBoss) this.completeBossFight();
+      else this.registerNormalKill();
+    });
+    gameContext.handle('fightBoss', () => {
+      if (this.canFightBoss()) this.beginBossFight();
+    });
+    gameContext.handle('selectStage', ({ stageId }) => {
+      this.selectStage(stageId);
+    });
   }
 
   onTick(dt: number): void {
@@ -51,8 +60,8 @@ export class Stages implements IGameComponent {
     if (this.bossTimeRemainingMs > 0) return;
     this.bossTimeRemainingMs = 0;
     this.mode = 'normal';
+    // Combat reacts to bossFailed by returning the player to a normal enemy.
     this.gameContext.emit('bossFailed', { stageName: this.getCurrentStage().name });
-    this.gameContext.getGameComponent(Combat).spawnNormalEnemy();
   }
 
   getCurrentStage(): StageDefinition {
@@ -100,8 +109,10 @@ export class Stages implements IGameComponent {
       this.unlockedStageIds.push(nextStageId);
       this.gameContext.emit('stageUnlocked', { stageId: nextStageId, stageName: nextStage.name });
     }
+    // Switch to the new stage but don't emit stageSelected: Combat already
+    // spawns the next enemy itself after the enemyDefeated fact that drove this
+    // boss completion, and it reads the updated current stage here.
     this.currentStageId = nextStageId;
-    this.gameContext.emit('stageSelected', { stageId: nextStageId, stageName: nextStage.name });
   }
 
   selectStage(stageId: string): boolean {

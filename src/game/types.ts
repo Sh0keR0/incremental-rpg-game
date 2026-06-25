@@ -5,7 +5,7 @@ export type StatName = 'strength' | 'agility' | 'endurance';
 
 export interface GameEventMap {
   attacked: { damage: number; enemyHp: number; enemyName: string };
-  enemyDefeated: { name: string; expReward: number; drops: DroppableItem[] };
+  enemyDefeated: { name: string; expReward: number; drops: DroppableItem[]; isBoss: boolean };
   expGained: { amount: number; exp: number; expToNext: number };
   leveledUp: { level: number };
   enemySpawned: { name: string; maxHp: number };
@@ -20,12 +20,23 @@ export interface GameEventMap {
 
 export type GameEventName = keyof GameEventMap;
 
+export interface GameCommandMap {
+  attack: Record<string, never>;
+  allocateStat: { statName: StatName };
+  fightBoss: Record<string, never>;
+  selectStage: { stageId: string };
+}
+
+export type GameCommandName = keyof GameCommandMap;
+
 export type ComponentClass<T extends IGameComponent = IGameComponent> = new () => T;
 
 export interface GameContext {
   rng(): number;
   emit<K extends GameEventName>(name: K, payload: GameEventMap[K]): void;
   on<K extends GameEventName>(name: K, listener: (payload: GameEventMap[K]) => void): () => void;
+  enqueue<K extends GameCommandName>(name: K, payload: GameCommandMap[K]): void;
+  handle<K extends GameCommandName>(name: K, handler: (payload: GameCommandMap[K]) => void): void;
   getGameComponent<T extends IGameComponent>(componentClass: ComponentClass<T>): T;
 }
 

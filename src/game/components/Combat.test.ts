@@ -1,17 +1,13 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { STAGES } from '../content/stages.ts';
-import type { GameContext } from '../types.ts';
+import { makeTestContext } from '../testing/makeTestContext.ts';
+import type { ComponentClass, IGameComponent } from '../types.ts';
 import { Combat, type Enemy } from './Combat.ts';
 import { Player } from './Player.ts';
 import { Stages } from './Stages.ts';
 
-interface Captured {
-  name: string;
-  payload: unknown;
-}
-
-// A self-contained enemy so these tests don't depend on the shipping stage
-// content, whose stats and drops change during development.
+// A self-contained enemy so these tests don't depend on shipping stage content,
+// whose stats and drops change during development.
 const TEST_ENEMY: Enemy = {
   name: 'Test Dummy',
   hp: 20,
@@ -20,51 +16,35 @@ const TEST_ENEMY: Enemy = {
   drops: [{ itemId: 'WoodenSword', chance: 1 }],
 };
 
-function makeContext(): {
-  gameContext: GameContext;
-  events: Captured[];
-  gainExp: ReturnType<typeof vi.fn>;
-  add: ReturnType<typeof vi.fn>;
-  registerNormalKill: ReturnType<typeof vi.fn>;
-  completeBossFight: ReturnType<typeof vi.fn>;
-} {
-  const events: Captured[] = [];
-  const gainExp = vi.fn();
-  const add = vi.fn();
-  const registerNormalKill = vi.fn();
-  const completeBossFight = vi.fn();
-  const stagesStub = {
-    id: 'stages',
-    getCurrentStage: () => STAGES[0],
-    registerNormalKill,
-    completeBossFight,
-  };
-  const gameContext: GameContext = {
-    rng: () => 0, // deterministic respawn + guaranteed (chance 1) drop rolls
-    emit: (name, payload) => {
-      events.push({ name, payload });
-    },
-    on: () => () => {},
-    getGameComponent: ((component: unknown) => {
-      if (component === Player) return { id: 'player', gainExp };
-      if (component === Stages) return stagesStub;
-      return { id: 'inventory', add };
-    }) as unknown as GameContext['getGameComponent'],
-  };
-  return { gameContext, events, gainExp, add, registerNormalKill, completeBossFight };
-}
+const FIRST_STAGE = STAGES[0];
+
+// Combat queries Stages (which stage to spawn from / the boss template) and
+// Player (attack power). Its reward + progression cascade is covered by the
+// createGame integration; here we stub just enough for Combat's own behaviour.
+const queryStub = (<T extends IGameComponent>(componentClass: ComponentClass<T>): T => {
+  if ((componentClass as unknown) === Stages) {
+    return {
+      getCurrentStage: () => FIRST_STAGE,
+      getBossTemplate: () => FIRST_STAGE.boss,
+    } as unknown as T;
+  }
+  if ((componentClass as unknown) === Player) {
+    return { getAttack: () => 5 } as unknown as T;
+  }
+  throw new Error(`unexpected getGameComponent: ${componentClass.name}`);
+}) as <T extends IGameComponent>(componentClass: ComponentClass<T>) => T;
 
 function setup(enemy: Enemy = TEST_ENEMY) {
-  const context = makeContext();
+  const context = makeTestContext({ getGameComponent: queryStub });
   const combat = new Combat();
   combat.initialize(context.gameContext);
-  combat.load({ enemy: { ...enemy } }); // replace the pool-spawned enemy with our fixture
+  combat.load({ enemy: { ...enemy }, isBoss: false });
   return { combat, ...context };
 }
 
 describe('Combat', () => {
   test('spawns a full-HP enemy on initialize', () => {
-    const { gameContext } = makeContext();
+    const { gameContext } = makeTestContext({ getGameComponent: queryStub });
     const combat = new Combat();
     combat.initialize(gameContext);
     const { enemy } = combat.getState();
@@ -73,7 +53,7 @@ describe('Combat', () => {
   });
 
   test('non-lethal hit lowers HP and emits only attacked', () => {
-    const { combat, events, gainExp } = setup();
+    const { combat, events } = setup();
     combat.damageEnemy(5);
     expect(combat.getState().enemy.hp).toBe(TEST_ENEMY.maxHp - 5);
     expect(events).toEqual([
@@ -82,41 +62,84 @@ describe('Combat', () => {
         payload: { damage: 5, enemyHp: TEST_ENEMY.maxHp - 5, enemyName: TEST_ENEMY.name },
       },
     ]);
-    expect(gainExp).not.toHaveBeenCalled();
   });
 
-  test('lethal hit rewards EXP, drops loot, registers the kill, and respawns', () => {
-    const { combat, events, gainExp, add, registerNormalKill } = setup();
+  test('the attack command damages the enemy by the player attack', () => {
+    const { combat, runCommand } = setup();
+    runCommand('attack', {});
+    expect(combat.getState().enemy.hp).toBe(TEST_ENEMY.maxHp - 5);
+  });
+
+  test('lethal hit announces enemyDefeated (not a boss) with reward + drops, then respawns', () => {
+    const { combat, events } = setup();
     combat.damageEnemy(TEST_ENEMY.maxHp);
 
-    expect(gainExp).toHaveBeenCalledWith(TEST_ENEMY.expReward);
-    expect(add).toHaveBeenCalledWith('WoodenSword');
-    expect(registerNormalKill).toHaveBeenCalledOnce();
     expect(events.map((event) => event.name)).toEqual([
       'attacked',
       'enemyDefeated',
       'enemySpawned',
     ]);
+    const defeated = events.find((event) => event.name === 'enemyDefeated');
+    expect(defeated?.payload).toEqual({
+      name: TEST_ENEMY.name,
+      expReward: TEST_ENEMY.expReward,
+      drops: TEST_ENEMY.drops, // rng: () => 0 rolls every chance-1 drop
+      isBoss: false,
+    });
     const respawned = combat.getState().enemy;
     expect(respawned.hp).toBe(respawned.maxHp);
     expect(combat.getState().isBoss).toBe(false);
   });
 
-  test('defeating a boss completes the boss fight instead of registering a kill', () => {
-    const { combat, registerNormalKill, completeBossFight } = setup();
-    const boss = { name: 'Boss', maxHp: 40, expReward: 100, drops: [] };
-    combat.spawnBoss(boss);
+  test('reacts to bossStarted by spawning the stage boss', () => {
+    const { combat, simulateEvent } = setup();
+    simulateEvent('bossStarted', {
+      name: FIRST_STAGE.boss.name,
+      maxHp: FIRST_STAGE.boss.maxHp,
+      timeLimitMs: 1000,
+    });
+    expect(combat.getState().isBoss).toBe(true);
+    expect(combat.getState().enemy.name).toBe(FIRST_STAGE.boss.name);
+    expect(combat.getState().enemy.hp).toBe(FIRST_STAGE.boss.maxHp);
+  });
+
+  test('defeating a boss announces enemyDefeated with isBoss true, then respawns a normal enemy', () => {
+    const { combat, events, simulateEvent } = setup();
+    simulateEvent('bossStarted', {
+      name: FIRST_STAGE.boss.name,
+      maxHp: FIRST_STAGE.boss.maxHp,
+      timeLimitMs: 1000,
+    });
+    combat.damageEnemy(FIRST_STAGE.boss.maxHp);
+
+    const defeated = events.find((event) => event.name === 'enemyDefeated');
+    expect((defeated?.payload as { isBoss: boolean }).isBoss).toBe(true);
+    expect(combat.getState().isBoss).toBe(false); // back to a normal enemy
+  });
+
+  test('reacts to bossFailed and stageSelected by returning to a normal enemy', () => {
+    const { combat, simulateEvent } = setup();
+    simulateEvent('bossStarted', {
+      name: FIRST_STAGE.boss.name,
+      maxHp: FIRST_STAGE.boss.maxHp,
+      timeLimitMs: 1000,
+    });
     expect(combat.getState().isBoss).toBe(true);
 
-    combat.damageEnemy(boss.maxHp);
-    expect(completeBossFight).toHaveBeenCalledOnce();
-    expect(registerNormalKill).not.toHaveBeenCalled();
-    expect(combat.getState().isBoss).toBe(false); // respawned a normal enemy
+    simulateEvent('bossFailed', { stageName: FIRST_STAGE.name });
+    expect(combat.getState().isBoss).toBe(false);
+
+    simulateEvent('bossStarted', {
+      name: FIRST_STAGE.boss.name,
+      maxHp: FIRST_STAGE.boss.maxHp,
+      timeLimitMs: 1000,
+    });
+    simulateEvent('stageSelected', { stageId: FIRST_STAGE.id, stageName: FIRST_STAGE.name });
+    expect(combat.getState().isBoss).toBe(false);
   });
 
   test('save/load round-trips the active enemy and boss flag', () => {
     const { combat } = setup();
-    combat.spawnBoss({ name: 'Boss', maxHp: 40, expReward: 100, drops: [] });
     combat.damageEnemy(5);
     const saved = combat.save();
 

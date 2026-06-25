@@ -29,18 +29,33 @@ npm run lint:fix # biome check --write (apply safe lint fixes)
 
 The game runs on a **component-based engine**. Full design and conventions live
 in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — read it before changing the
-engine. The essentials:
+engine.
+
+> The engine runs an **events-first** model (command queue + always-on tick +
+> synchronous, order-independent events, no `dispatch`/FX). `ARCHITECTURE.md`
+> describes it; **[docs/MIGRATION.md](docs/MIGRATION.md)** records how it got
+> there from the earlier `dispatch`/FX design.
+
+The essentials:
 
 - **`GameCore`** (`src/game/GameCore.ts`) — the reusable, game-agnostic engine:
-  owns the loop, creates/holds components, runs the typed event bus, and exposes
-  `getGameComponent<T>` + a `dispatch` transaction.
+  owns the always-running loop, creates/holds components, drains the command
+  queue, runs the typed event bus, and exposes `getGameComponent<T>`.
 - **`createGame`** (`src/game/createGame.ts`) — the game-specific composition that
-  picks components, defines `actions`, builds the typed `GameSnapshot`, and returns
-  the `Game` facade the UI uses.
+  picks components, exposes `actions` (which **enqueue commands**), builds the
+  typed `GameSnapshot`, and returns the `Game` facade the UI uses.
 - **Components** (`src/game/components/`) — `IGameComponent` classes (Player,
-  Combat) holding logic; they call each other via `getGameComponent`.
+  Combat, Inventory, PlayerStats) holding logic.
 - **`src/ui/`** — DOM only, no game rules. Imports only from the `src/game` barrel
   and talks to the game through the `Game` facade.
+
+**Communication:** three message kinds — **commands** (intents, exactly one
+handler, queued and drained at tick start), **events** (facts, fan-out to 0..N
+listeners, fired synchronously in **unspecified order**), and **queries**
+(reading another component via `getGameComponent`, a direct call). Default to
+events for facts; keep queries direct; use a direct command call only when
+ordering is essential. Event handlers must be commutative — never rely on
+listener order (see the doc's order-independence rules).
 
 The hard rule still holds: **core game logic and the UI stay strictly separate.**
 The barrel (`src/game/index.ts`) exports only `createGame` + types — never the
@@ -48,8 +63,9 @@ engine, components, or other internals.
 
 Two rules that bite if ignored: components key save/state by a hand-written `id`
 (never `class.name` — minified); don't call `getGameComponent` inside
-`initialize`. See the doc for the full lifecycle, event map, and "how to add a
-component/event/action" checklist.
+`initialize` (subscribe to events / register command handlers there instead). See
+the doc for the full lifecycle, message maps, and "how to add a
+component/event/command" checklist.
 
 ## Layout
 
@@ -59,7 +75,8 @@ component/event/action" checklist.
 - `src/ui/` — `render.ts` (paint snapshot) + `index.ts` (`mountUI`: wire DOM to game).
 - `src/style.css` — global styles.
 - `public/` — static files served as-is (favicon, icons).
-- `docs/ARCHITECTURE.md` — canonical engine design.
+- `docs/ARCHITECTURE.md` — canonical engine design (target events-first model).
+- `docs/MIGRATION.md` — phased plan for the move to the events-first engine.
 - `tsconfig.json` — strict bundler-mode config; `noEmit` (Vite handles emit).
 
 ## Conventions
@@ -96,6 +113,11 @@ small functions over narration.
 Vitest is the test runner. The goal is confidence in the game's *rules and
 math*, not coverage for its own sake — test the logic that would silently
 break the game if it were wrong.
+
+> This section is the testing *philosophy*. For the engine-specific *how-to* —
+> the deterministic seams, driving ticks, the `makeTestContext` helper, and the
+> anti-patterns — see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** →
+> "Testing the engine".
 
 **What to test:**
 

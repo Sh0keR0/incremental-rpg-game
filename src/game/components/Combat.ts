@@ -1,8 +1,7 @@
-import { type EnemyTemplate, instantiateEnemy } from '../content/enemies.ts';
+import { instantiateEnemy } from '../content/enemies.ts';
 import { spawnStageEnemy, STAGES } from '../content/stages.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
 import { Player } from './Player.ts';
-import Inventory from './Inventory.ts';
 import { Stages } from './Stages.ts';
 
 export interface DroppableItem {
@@ -32,6 +31,15 @@ export class Combat implements IGameComponent {
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
     this.enemy = spawnStageEnemy(STAGES[0], gameContext.rng);
+    gameContext.handle('attack', () => {
+      this.damageEnemy(this.gameContext.getGameComponent(Player).getAttack());
+    });
+    // Spawning follows the stage facts: the boss appears when the fight starts,
+    // and a normal enemy returns whenever the active stage changes or a boss
+    // fight is abandoned.
+    gameContext.on('bossStarted', () => this.spawnBoss());
+    gameContext.on('bossFailed', () => this.spawnNormalEnemy());
+    gameContext.on('stageSelected', () => this.spawnNormalEnemy());
   }
 
   damageEnemy(amount: number): void {
@@ -53,30 +61,21 @@ export class Combat implements IGameComponent {
     this.gameContext.emit('enemySpawned', { name: this.enemy.name, maxHp: this.enemy.maxHp });
   }
 
-  spawnBoss(template: EnemyTemplate): void {
-    this.enemy = instantiateEnemy(template);
+  spawnBoss(): void {
+    this.enemy = instantiateEnemy(this.gameContext.getGameComponent(Stages).getBossTemplate());
     this.currentEnemyIsBoss = true;
+    this.gameContext.emit('enemySpawned', { name: this.enemy.name, maxHp: this.enemy.maxHp });
   }
 
   private defeatEnemy() {
-    this.gameContext.getGameComponent(Player).gainExp(this.enemy.expReward);
-
-    const drops = this.rollDrops();
-    for (const drop of drops) {
-      this.gameContext.getGameComponent(Inventory).add(drop.itemId);
-    }
+    // Announce the fact; Stages reacts synchronously (advancing the stage on a
+    // boss kill) before we read the current stage to spawn the next enemy.
     this.gameContext.emit('enemyDefeated', {
       name: this.enemy.name,
       expReward: this.enemy.expReward,
-      drops: drops,
+      drops: this.rollDrops(),
+      isBoss: this.currentEnemyIsBoss,
     });
-
-    const stages = this.gameContext.getGameComponent(Stages);
-    if (this.currentEnemyIsBoss) {
-      stages.completeBossFight();
-    } else {
-      stages.registerNormalKill();
-    }
     this.spawnNormalEnemy();
   }
 

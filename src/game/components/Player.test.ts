@@ -1,32 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import type { GameContext } from '../types.ts';
+import { makeTestContext } from '../testing/makeTestContext.ts';
 import { Player } from './Player.ts';
 
-interface Captured {
-  name: string;
-  payload: unknown;
-}
-
-function makeContext(): { gameContext: GameContext; events: Captured[] } {
-  const events: Captured[] = [];
-  const gameContext: GameContext = {
-    rng: () => 0,
-    emit: (name, payload) => {
-      events.push({ name, payload });
-    },
-    on: () => () => {},
-    getGameComponent: () => {
-      throw new Error('getGameComponent not available in this test');
-    },
-  };
-  return { gameContext, events };
-}
-
-function makePlayer(): { player: Player; events: Captured[] } {
-  const { gameContext, events } = makeContext();
+function makePlayer() {
+  const { gameContext, events, simulateEvent } = makeTestContext();
   const player = new Player();
   player.initialize(gameContext);
-  return { player, events };
+  return { player, events, simulateEvent };
 }
 
 describe('Player', () => {
