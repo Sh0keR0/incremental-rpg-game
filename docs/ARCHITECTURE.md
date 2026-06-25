@@ -27,7 +27,7 @@ Three layers inside `src/game`:
 
 - **`GameCore`** — the reusable engine. Game-agnostic: it knows nothing about
   players or enemies. Owns the always-running loop, the components, the command
-  queue, and the event bus.
+  queue, the event bus, and the save/load seam.
 - **`createGame` (composition / "game layer")** — the thin, game-specific glue.
   It picks which components exist, exposes the player **actions** (which enqueue
   commands), builds the typed state snapshot, and returns the `Game` facade.
@@ -81,6 +81,12 @@ frame is reflected in this frame's progression. Because events fire
 synchronously, by the time `tick` returns the whole cascade has settled — so the
 UI renders exactly once, against fully-settled state. There is no separate
 post-render phase.
+
+The loop is started through the `Game` facade: `game.start()` / `game.stop()`
+wrap `GameCore`'s frame scheduler. `mountUI` calls `start()` once at bootstrap,
+so in the running game the loop is always live. Tests don't call the real
+scheduler — they inject a frame pump and step it by hand (see
+[Testing the engine](#testing-the-engine)).
 
 ## Events fire in an unspecified order
 
@@ -140,6 +146,15 @@ Only `id` is required; implement the hooks you need.
 `class.name` — production builds are minified and class names are not stable.
 `id` keys both the save blob and the render snapshot.
 
+### Persistence seam
+
+`GameCore.save()` aggregates each component's `save()` into `{ [id]: snapshot }`;
+`load(data)` hands each blob back to the component with the matching `id` by
+calling its `load()`. This is exactly why `id` must be stable — it's the key that
+pairs a saved blob with its component across runs and builds. A component without
+`save`/`load` is simply skipped. (The real save *system* — storage, versioning,
+migration — layers on top of this seam later.)
+
 ### GameContext
 
 Passed to `initialize`; components keep the reference for later use. The exact
@@ -185,6 +200,12 @@ interface GameCommandMap {      // intents: "please do X"
 ```
 
 Add an event or command by adding one line to the relevant map in `types.ts`.
+
+Two rules the engine **enforces** on commands (unlike events, which fan out to
+0..N listeners and never error on zero): a command has **exactly one** handler —
+`handle` throws if a second registers — and draining a queued command with no
+registered handler throws. Handlers resolve at drain time, so a command may be
+enqueued before its owner has registered in `initialize`.
 
 ## Worked example: the Attack flow
 
@@ -271,6 +292,10 @@ re-exports whatever the UI needs.
   one `handle` for it; expose a facade action that `enqueue`s it.
 - **Surface new data to the UI**: return it from the component's `getState`, then
   read it in `src/ui/render.ts`.
+- **Test it**: a new pure rule → a `systems/` unit test; a new component or
+  event reaction → a `makeTestContext` unit test for the component, plus a
+  `createGame` integration test when the behaviour spans components (e.g. a new
+  reaction to an existing fact). See [Testing the engine](#testing-the-engine).
 
 Keep game rules in components/`systems` (pure, fully tested per `CLAUDE.md`);
 keep the UI free of game logic.
