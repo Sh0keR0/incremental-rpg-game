@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { STAGES } from '../content/stages.ts';
 import { makeTestContext, type TestContext } from '../testing/makeTestContext.ts';
+import type { ComponentClass, IGameComponent } from '../types.ts';
+import { PlayerStats } from './PlayerStats.ts';
 import { Stages } from './Stages.ts';
 
 const FIRST = STAGES[0];
@@ -10,8 +12,16 @@ const SECOND = STAGES[1];
 const NORMAL_DEFEAT = { name: 'grunt', expReward: 0, drops: [], isBoss: false };
 const BOSS_DEFEAT = { ...NORMAL_DEFEAT, isBoss: true };
 
-function setup() {
-  const context = makeTestContext();
+// Stages queries PlayerStats for endurance when starting a boss fight; stub it
+// with a fixed endurance value (0 by default keeps the base boss timer).
+function setup(endurance = 0) {
+  const getGameComponent = (<T extends IGameComponent>(componentClass: ComponentClass<T>): T => {
+    if ((componentClass as unknown) === PlayerStats) {
+      return { getStat: () => endurance } as unknown as T;
+    }
+    throw new Error(`unexpected getGameComponent: ${componentClass.name}`);
+  }) as <T extends IGameComponent>(componentClass: ComponentClass<T>) => T;
+  const context = makeTestContext({ getGameComponent });
   const stages = new Stages();
   stages.initialize(context.gameContext);
   return { stages, ...context };
@@ -73,6 +83,14 @@ describe('Stages', () => {
       name: 'bossStarted',
       payload: { stageId: FIRST.id },
     });
+  });
+
+  test('endurance extends the starting boss timer beyond the stage base', () => {
+    const context = setup(5);
+    unlockBoss(context);
+    context.runCommand('fightBoss', {});
+    // base limit + 5 endurance * 1000ms/point
+    expect(context.stages.getState().bossTimeRemainingMs).toBe(FIRST.bossTimeLimitMs + 5000);
   });
 
   test('the fightBoss command does nothing while the boss is still locked', () => {

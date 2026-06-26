@@ -1,6 +1,8 @@
 import type { EnemyTemplate } from '../content/enemies.ts';
 import { getNextStage, getStageById, type StageDefinition, STAGES } from '../content/stages.ts';
+import { bossTimeLimitMs } from '../systems/combatStats.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
+import { PlayerStats } from './PlayerStats.ts';
 
 export type StageMode = 'normal' | 'boss';
 
@@ -79,8 +81,9 @@ export class Stages implements IGameComponent {
 
   private beginBossFight(): void {
     const stage = this.getCurrentStage();
+    const endurance = this.gameContext.getGameComponent(PlayerStats).getStat('endurance');
     this.mode = 'boss';
-    this.bossTimeRemainingMs = stage.bossTimeLimitMs;
+    this.bossTimeRemainingMs = bossTimeLimitMs(stage.bossTimeLimitMs, endurance);
     this.gameContext.emit('bossStarted', { stageId: stage.id });
   }
 

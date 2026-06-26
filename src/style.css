@@ -247,6 +247,8 @@ body {
 }
 
 .attack-btn {
+  position: relative;
+  overflow: hidden;
   padding: 0.9rem 1.5rem;
   font-size: 1.1rem;
   font-weight: 700;
@@ -258,12 +260,33 @@ body {
   transition: transform 0.05s ease, filter 0.15s ease;
 }
 
-.attack-btn:hover {
+.attack-btn:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 
-.attack-btn:active {
+.attack-btn:active:not(:disabled) {
   transform: scale(0.96);
+}
+
+.attack-btn:disabled {
+  cursor: progress;
+}
+
+.attack-label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Shrinks from full to empty as the cooldown ticks down, so the button visibly
+   "recharges" — agility shortens the time it takes. */
+.attack-cooldown {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
 }
 
 .fx-layer {

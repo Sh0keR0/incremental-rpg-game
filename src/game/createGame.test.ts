@@ -32,11 +32,18 @@ function newGame() {
 type GamePump = { game: Game; tick: (deltaMs?: number) => void };
 
 // Each attack enqueues a command, so a tick must follow it to drain + apply.
+// Attacks now sit behind a cooldown (agility shortens it), so we tick a full
+// cooldown per attack to land every one, and bank any earned stat points into
+// strength so bosses stay beatable within their timer at base agility.
 function attackUntil(pump: GamePump, done: () => boolean, limit = 5000): void {
   let safety = 0;
   while (!done() && safety++ < limit) {
+    const unspentPoints = pump.game.getState().stats.unspentPoints;
+    for (let point = 0; point < unspentPoints; point++) {
+      pump.game.actions.allocateStat('strength');
+    }
     pump.game.actions.attack();
-    pump.tick();
+    pump.tick(pump.game.getState().combat.attackCooldownMs);
   }
   if (safety >= limit) throw new Error('attackUntil exceeded its safety limit');
 }
@@ -84,7 +91,7 @@ describe('createGame', () => {
 
     for (let hit = 0; hit < hitsToKill; hit++) {
       game.actions.attack();
-      tick();
+      tick(game.getState().combat.attackCooldownMs);
     }
 
     expect(onDefeated).toHaveBeenCalledWith({
@@ -104,7 +111,7 @@ describe('createGame', () => {
 
     for (let hit = 0; hit < hitsToKill; hit++) {
       game.actions.attack();
-      tick();
+      tick(game.getState().combat.attackCooldownMs);
     }
 
     // Inventory reacts to enemyDefeated; rng: () => 0 rolls every drop.

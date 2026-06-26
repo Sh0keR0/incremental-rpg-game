@@ -26,7 +26,10 @@ export const TEMPLATE = `
         <span class="bar-label"></span>
       </div>
     </section>
-    <button class="attack-btn" type="button">Attack</button>
+    <button class="attack-btn" type="button">
+      <span class="attack-label">Attack</span>
+      <span class="attack-cooldown"></span>
+    </button>
     <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
     <button class="reset-btn" type="button">Reset</button>
     <section class="player-panel foldable" data-feature="exp">
@@ -128,6 +131,18 @@ export function render(root: HTMLElement, state: GameSnapshot): void {
   if (name) name.textContent = enemy.name;
   root.querySelector('.enemy-panel')?.classList.toggle('boss', state.combat.isBoss);
   setBar(root, '.hp-bar', enemy.hp, enemy.maxHp, `${enemy.hp} / ${enemy.maxHp} HP`);
+
+  const attackButton = root.querySelector<HTMLButtonElement>('.attack-btn');
+  if (attackButton) {
+    const { attackCooldownRemainingMs, attackCooldownMs } = state.combat;
+    attackButton.disabled = attackCooldownRemainingMs > 0;
+    const cooldown = attackButton.querySelector<HTMLElement>('.attack-cooldown');
+    if (cooldown) {
+      const remainingPercent =
+        attackCooldownMs > 0 ? (attackCooldownRemainingMs / attackCooldownMs) * 100 : 0;
+      cooldown.style.width = `${Math.max(0, Math.min(100, remainingPercent))}%`;
+    }
+  }
 
   const fightBossButton = root.querySelector<HTMLButtonElement>('.fight-boss-btn');
   if (fightBossButton) {

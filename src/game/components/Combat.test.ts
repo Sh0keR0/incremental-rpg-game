@@ -5,6 +5,7 @@ import { makeTestContext } from '../testing/makeTestContext.ts';
 import type { ComponentClass, IGameComponent } from '../types.ts';
 import { Combat } from './Combat.ts';
 import { Player } from './Player.ts';
+import { PlayerStats } from './PlayerStats.ts';
 import { Stages } from './Stages.ts';
 
 // A self-contained enemy so these tests don't depend on shipping stage content,
@@ -19,24 +20,35 @@ const TEST_ENEMY: Enemy = {
 
 const FIRST_STAGE = STAGES[0];
 
-// Combat queries Stages (which stage to spawn from / the boss template) and
-// Player (attack power). Its reward + progression cascade is covered by the
-// createGame integration; here we stub just enough for Combat's own behaviour.
-const queryStub = (<T extends IGameComponent>(componentClass: ComponentClass<T>): T => {
-  if ((componentClass as unknown) === Stages) {
-    return {
-      getCurrentStage: () => FIRST_STAGE,
-      getBossTemplate: () => FIRST_STAGE.boss,
-    } as unknown as T;
-  }
-  if ((componentClass as unknown) === Player) {
-    return { getAttack: () => 5 } as unknown as T;
-  }
-  throw new Error(`unexpected getGameComponent: ${componentClass.name}`);
-}) as <T extends IGameComponent>(componentClass: ComponentClass<T>) => T;
+type Stats = { strength: number; agility: number; endurance: number };
 
-function setup(enemy: Enemy = TEST_ENEMY) {
-  const context = makeTestContext({ getGameComponent: queryStub });
+// Combat queries Stages (which stage to spawn from / the boss template), Player
+// (attack power) and PlayerStats (strength/agility). Its reward + progression
+// cascade is covered by the createGame integration; here we stub just enough for
+// Combat's own behaviour. `stats` is mutable so a test can set strength/agility.
+function makeQueryStub(stats: Stats) {
+  return (<T extends IGameComponent>(componentClass: ComponentClass<T>): T => {
+    if ((componentClass as unknown) === Stages) {
+      return {
+        getCurrentStage: () => FIRST_STAGE,
+        getBossTemplate: () => FIRST_STAGE.boss,
+      } as unknown as T;
+    }
+    if ((componentClass as unknown) === Player) {
+      return { getAttack: () => 5 } as unknown as T;
+    }
+    if ((componentClass as unknown) === PlayerStats) {
+      return { getStat: (name: keyof Stats) => stats[name] } as unknown as T;
+    }
+    throw new Error(`unexpected getGameComponent: ${componentClass.name}`);
+  }) as <T extends IGameComponent>(componentClass: ComponentClass<T>) => T;
+}
+
+function setup(
+  enemy: Enemy = TEST_ENEMY,
+  stats: Stats = { strength: 0, agility: 0, endurance: 0 },
+) {
+  const context = makeTestContext({ getGameComponent: makeQueryStub(stats) });
   const combat = new Combat();
   combat.initialize(context.gameContext);
   combat.load({ enemy: { ...enemy }, isBoss: false });
@@ -45,10 +57,7 @@ function setup(enemy: Enemy = TEST_ENEMY) {
 
 describe('Combat', () => {
   test('spawns a full-HP enemy on initialize', () => {
-    const { gameContext } = makeTestContext({ getGameComponent: queryStub });
-    const combat = new Combat();
-    combat.initialize(gameContext);
-    const { enemy } = combat.getState();
+    const { enemy } = setup().combat.getState();
     expect(enemy.hp).toBe(enemy.maxHp);
     expect(enemy.name).toBeTruthy();
   });
@@ -121,6 +130,40 @@ describe('Combat', () => {
     simulateEvent('bossStarted', { stageId: FIRST_STAGE.id });
     simulateEvent('stageSelected', { stageId: FIRST_STAGE.id });
     expect(combat.getState().isBoss).toBe(false);
+  });
+
+  test('strength raises the damage the attack command deals', () => {
+    const { combat, runCommand } = setup(TEST_ENEMY, { strength: 3, agility: 0, endurance: 0 });
+    runCommand('attack', {});
+    // 5 base attack + 3 strength * 2/point = 11 damage
+    expect(combat.getState().enemy.hp).toBe(TEST_ENEMY.maxHp - 11);
+  });
+
+  test('a second attack within the cooldown window does nothing', () => {
+    const { combat, runCommand } = setup();
+    runCommand('attack', {});
+    const hpAfterFirst = combat.getState().enemy.hp;
+    runCommand('attack', {});
+    expect(combat.getState().enemy.hp).toBe(hpAfterFirst);
+  });
+
+  test('the attack lands again once the cooldown ticks down to zero', () => {
+    const { combat, runCommand } = setup();
+    runCommand('attack', {});
+    const hpAfterFirst = combat.getState().enemy.hp;
+    combat.onTick(combat.getState().attackCooldownMs);
+    runCommand('attack', {});
+    expect(combat.getState().enemy.hp).toBe(hpAfterFirst - 5);
+  });
+
+  test('higher agility yields a shorter attack cooldown', () => {
+    const slow = setup(TEST_ENEMY, { strength: 0, agility: 0, endurance: 0 });
+    const fast = setup(TEST_ENEMY, { strength: 0, agility: 10, endurance: 0 });
+    slow.runCommand('attack', {});
+    fast.runCommand('attack', {});
+    expect(fast.combat.getState().attackCooldownRemainingMs).toBeLessThan(
+      slow.combat.getState().attackCooldownRemainingMs,
+    );
   });
 
   test('save/load round-trips the active enemy and boss flag', () => {
