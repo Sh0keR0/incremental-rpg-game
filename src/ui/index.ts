@@ -1,5 +1,5 @@
 import { getNavigableStageId, getStageById, type Game, type StatName } from '../game/index.ts';
-import { render, renderStats, TEMPLATE, updateInventoryUI } from './render.ts';
+import { render, renderStats, revealFeature, TEMPLATE, updateInventoryUI } from './render.ts';
 
 function floater(layer: HTMLElement, text: string, className: string): void {
   const element = document.createElement('div');
@@ -47,6 +47,7 @@ export function mountUI(game: Game, root: HTMLElement): void {
   game.on('expGained', (event) => floater(fxLayer, `+${event.amount} EXP`, 'exp'));
   game.on('leveledUp', (event) => floater(fxLayer, `Level ${event.level}!`, 'levelup'));
   game.on('inventoryUpdated', (event) => updateInventoryUI(event.inventory));
+  game.on('featureUnlocked', (event) => revealFeature(view, event.feature));
   game.on('bossUnlocked', () => floater(fxLayer, 'Boss unlocked!', 'levelup'));
   game.on('bossFailed', () => floater(fxLayer, 'Boss escaped!', 'damage'));
   game.on('stageUnlocked', (event) =>
