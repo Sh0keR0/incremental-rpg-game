@@ -1,4 +1,4 @@
-import type { DroppableItem } from './components/Combat.ts';
+import type { DroppableItem } from './content/enemies.ts';
 import type { InventoryData } from './components/Inventory.ts';
 
 export type StatName = 'strength' | 'agility' | 'endurance';
@@ -11,11 +11,13 @@ export interface GameEventMap {
   enemySpawned: { name: string; maxHp: number };
   inventoryUpdated: { inventory: InventoryData };
   statsChanged: { stats: Record<StatName, number>; unspentPoints: number };
-  bossUnlocked: { stageName: string };
-  bossStarted: { name: string; maxHp: number; timeLimitMs: number };
-  bossFailed: { stageName: string };
-  stageUnlocked: { stageId: string; stageName: string };
-  stageSelected: { stageId: string; stageName: string };
+  // Stage/boss facts carry only the stage id; display names and boss stats are
+  // static content the listener resolves from STAGES (see content/stages.ts).
+  bossUnlocked: { stageId: string };
+  bossStarted: { stageId: string };
+  bossFailed: { stageId: string };
+  stageUnlocked: { stageId: string };
+  stageSelected: { stageId: string };
 }
 
 export type GameEventName = keyof GameEventMap;

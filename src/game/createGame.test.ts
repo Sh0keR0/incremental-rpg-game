@@ -188,7 +188,7 @@ describe('createGame stage system', () => {
 
     attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
 
-    expect(onUnlocked).toHaveBeenCalledWith({ stageName: FIRST.name });
+    expect(onUnlocked).toHaveBeenCalledWith({ stageId: FIRST.id });
   });
 
   test('fightBoss is ignored until the boss is unlocked', () => {
@@ -213,7 +213,26 @@ describe('createGame stage system', () => {
 
     expect(pump.game.getState().stages.currentStageId).toBe(SECOND.id);
     expect(pump.game.getState().combat.isBoss).toBe(false); // back to normal enemies
-    expect(onStageUnlocked).toHaveBeenCalledWith({ stageId: SECOND.id, stageName: SECOND.name });
+    expect(onStageUnlocked).toHaveBeenCalledWith({ stageId: SECOND.id });
+  });
+
+  test('defeating the boss spawns exactly one replacement enemy (no double spawn)', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().combat.isBoss).toBe(true);
+
+    // Listen only across the killing blow: the boss is already up, so the sole
+    // spawn during this window is the single normal enemy that replaces it.
+    // A regression that re-emitted stageSelected from completeBossFight would
+    // spawn twice and trip this.
+    const onSpawned = vi.fn();
+    pump.game.on('enemySpawned', onSpawned);
+    attackUntil(pump, () => pump.game.getState().stages.currentStageId !== FIRST.id);
+
+    expect(onSpawned).toHaveBeenCalledTimes(1);
+    expect(pump.game.getState().combat.isBoss).toBe(false);
   });
 
   test('player can move back to an earlier unlocked stage, keeping its progress', () => {
@@ -251,6 +270,6 @@ describe('createGame stage system', () => {
 
     expect(pump.game.getState().stages.mode).toBe('normal');
     expect(pump.game.getState().combat.isBoss).toBe(false);
-    expect(onFailed).toHaveBeenCalledWith({ stageName: FIRST.name });
+    expect(onFailed).toHaveBeenCalledWith({ stageId: FIRST.id });
   });
 });

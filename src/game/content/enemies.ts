@@ -1,4 +1,15 @@
-import type { DroppableItem, Enemy } from '../components/Combat.ts';
+export interface DroppableItem {
+  itemId: string;
+  chance: number;
+}
+
+export interface Enemy {
+  name: string;
+  hp: number;
+  maxHp: number;
+  expReward: number;
+  drops: DroppableItem[];
+}
 
 export interface EnemyTemplate {
   name: string;

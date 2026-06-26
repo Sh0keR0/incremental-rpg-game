@@ -1,4 +1,4 @@
-import { getNavigableStageId, type Game, type StatName } from '../game/index.ts';
+import { getNavigableStageId, getStageById, type Game, type StatName } from '../game/index.ts';
 import { render, renderStats, TEMPLATE, updateInventoryUI } from './render.ts';
 
 function floater(layer: HTMLElement, text: string, className: string): void {
@@ -49,7 +49,9 @@ export function mountUI(game: Game, root: HTMLElement): void {
   game.on('inventoryUpdated', (event) => updateInventoryUI(event.inventory));
   game.on('bossUnlocked', () => floater(fxLayer, 'Boss unlocked!', 'levelup'));
   game.on('bossFailed', () => floater(fxLayer, 'Boss escaped!', 'damage'));
-  game.on('stageUnlocked', (event) => floater(fxLayer, `${event.stageName} unlocked!`, 'levelup'));
+  game.on('stageUnlocked', (event) =>
+    floater(fxLayer, `${getStageById(event.stageId)?.name ?? 'New stage'} unlocked!`, 'levelup'),
+  );
   const initialState = game.getState();
   render(view, initialState);
   renderStats(view, initialState);

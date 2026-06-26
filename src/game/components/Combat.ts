@@ -1,21 +1,8 @@
-import { instantiateEnemy } from '../content/enemies.ts';
+import { type DroppableItem, type Enemy, instantiateEnemy } from '../content/enemies.ts';
 import { spawnStageEnemy, STAGES } from '../content/stages.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
 import { Player } from './Player.ts';
 import { Stages } from './Stages.ts';
-
-export interface DroppableItem {
-  itemId: string;
-  chance: number;
-}
-
-export interface Enemy {
-  name: string;
-  hp: number;
-  maxHp: number;
-  expReward: number;
-  drops: DroppableItem[];
-}
 
 export interface CombatState {
   enemy: Enemy;
@@ -54,14 +41,14 @@ export class Combat implements IGameComponent {
     this.defeatEnemy();
   }
 
-  spawnNormalEnemy(): void {
+  private spawnNormalEnemy(): void {
     const stage = this.gameContext.getGameComponent(Stages).getCurrentStage();
     this.enemy = spawnStageEnemy(stage, this.gameContext.rng);
     this.currentEnemyIsBoss = false;
     this.gameContext.emit('enemySpawned', { name: this.enemy.name, maxHp: this.enemy.maxHp });
   }
 
-  spawnBoss(): void {
+  private spawnBoss(): void {
     this.enemy = instantiateEnemy(this.gameContext.getGameComponent(Stages).getBossTemplate());
     this.currentEnemyIsBoss = true;
     this.gameContext.emit('enemySpawned', { name: this.enemy.name, maxHp: this.enemy.maxHp });

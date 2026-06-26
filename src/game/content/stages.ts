@@ -1,5 +1,4 @@
-import type { Enemy } from '../components/Combat.ts';
-import { type EnemyTemplate, instantiateEnemy } from './enemies.ts';
+import { type Enemy, type EnemyTemplate, instantiateEnemy } from './enemies.ts';
 
 export interface StageDefinition {
   // Stable, hand-written id used in saves — never an array index, so stages can

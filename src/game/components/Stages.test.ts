@@ -49,7 +49,7 @@ describe('Stages', () => {
     expect(stages.canFightBoss()).toBe(true);
     expect(context.events).toContainEqual({
       name: 'bossUnlocked',
-      payload: { stageName: FIRST.name },
+      payload: { stageId: FIRST.id },
     });
   });
 
@@ -71,11 +71,7 @@ describe('Stages', () => {
     expect(state.bossTimeRemainingMs).toBe(FIRST.bossTimeLimitMs);
     expect(context.events).toContainEqual({
       name: 'bossStarted',
-      payload: {
-        name: FIRST.boss.name,
-        maxHp: FIRST.boss.maxHp,
-        timeLimitMs: FIRST.bossTimeLimitMs,
-      },
+      payload: { stageId: FIRST.id },
     });
   });
 
@@ -97,7 +93,7 @@ describe('Stages', () => {
     expect(stages.getState().mode).toBe('normal');
     expect(context.events).toContainEqual({
       name: 'bossFailed',
-      payload: { stageName: FIRST.name },
+      payload: { stageId: FIRST.id },
     });
   });
 
@@ -119,7 +115,7 @@ describe('Stages', () => {
     expect(state.mode).toBe('normal');
     expect(context.events).toContainEqual({
       name: 'stageUnlocked',
-      payload: { stageId: SECOND.id, stageName: SECOND.name },
+      payload: { stageId: SECOND.id },
     });
     // Combat respawns from the advanced stage itself, so no stageSelected here.
     expect(context.events.find((event) => event.name === 'stageSelected')).toBeUndefined();
@@ -149,7 +145,7 @@ describe('Stages', () => {
     expect(stages.getState().currentStageId).toBe(FIRST.id);
     expect(context.events).toContainEqual({
       name: 'stageSelected',
-      payload: { stageId: FIRST.id, stageName: FIRST.name },
+      payload: { stageId: FIRST.id },
     });
   });
 

@@ -51,7 +51,7 @@ export class Stages implements IGameComponent {
     this.bossTimeRemainingMs = 0;
     this.mode = 'normal';
     // Combat reacts to bossFailed by returning the player to a normal enemy.
-    this.gameContext.emit('bossFailed', { stageName: this.getCurrentStage().name });
+    this.gameContext.emit('bossFailed', { stageId: this.currentStageId });
   }
 
   getCurrentStage(): StageDefinition {
@@ -66,36 +66,32 @@ export class Stages implements IGameComponent {
     return this.mode === 'normal' && this.isBossUnlocked(this.currentStageId);
   }
 
-  registerNormalKill(): void {
+  private registerNormalKill(): void {
     const stage = this.getCurrentStage();
     const progress = this.progressFor(stage.id);
     if (progress.bossUnlocked) return;
     progress.kills += 1;
     if (progress.kills >= stage.killsToUnlockBoss) {
       progress.bossUnlocked = true;
-      this.gameContext.emit('bossUnlocked', { stageName: stage.name });
+      this.gameContext.emit('bossUnlocked', { stageId: stage.id });
     }
   }
 
-  beginBossFight(): void {
+  private beginBossFight(): void {
     const stage = this.getCurrentStage();
     this.mode = 'boss';
     this.bossTimeRemainingMs = stage.bossTimeLimitMs;
-    this.gameContext.emit('bossStarted', {
-      name: stage.boss.name,
-      maxHp: stage.boss.maxHp,
-      timeLimitMs: stage.bossTimeLimitMs,
-    });
+    this.gameContext.emit('bossStarted', { stageId: stage.id });
   }
 
-  completeBossFight(): void {
+  private completeBossFight(): void {
     this.mode = 'normal';
     const nextStage = getNextStage(this.currentStageId);
     if (nextStage === undefined) return; // final stage cleared — stay put
 
     if (!this.isUnlocked(nextStage.id)) {
       this.unlockedStageIds.push(nextStage.id);
-      this.gameContext.emit('stageUnlocked', { stageId: nextStage.id, stageName: nextStage.name });
+      this.gameContext.emit('stageUnlocked', { stageId: nextStage.id });
     }
     // Switch to the new stage but don't emit stageSelected: Combat already
     // spawns the next enemy itself after the enemyDefeated fact that drove this
@@ -108,8 +104,7 @@ export class Stages implements IGameComponent {
     if (!this.isUnlocked(stageId)) return false;
     if (stageId === this.currentStageId) return false;
     this.currentStageId = stageId;
-    const stage = getStageById(stageId);
-    this.gameContext.emit('stageSelected', { stageId, stageName: stage?.name ?? '' });
+    this.gameContext.emit('stageSelected', { stageId });
     return true;
   }
 
