@@ -31,6 +31,7 @@ export const TEMPLATE = `
       <span class="attack-cooldown"></span>
     </button>
     <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
+    <button class="reset-btn" type="button">Reset</button>
     <section class="player-panel foldable" data-feature="exp">
       <div class="player-level"></div>
       <div class="bar exp-bar">

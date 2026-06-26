@@ -69,4 +69,19 @@ describe('Inventory', () => {
     restored.load(saved as ReturnType<Inventory['getState']>);
     expect(restored.getState()).toEqual(inventory.getState());
   });
+
+  // JSON round-trips turn empty slots from undefined into null; load must
+  // normalize them back or the grid looks permanently full to findFirstAvailable.
+  test('load normalizes JSON null slots so the inventory is still usable', () => {
+    const { inventory } = makeInventory();
+    inventory.add('WoodenSword');
+    const throughJson = JSON.parse(JSON.stringify(inventory.save()));
+
+    const restored = makeInventory().inventory;
+    restored.load(throughJson);
+
+    expect(restored.getState().slots[0][1]).toBeUndefined();
+    expect(restored.isInventoryFull()).toBe(false);
+    expect(restored.add('ShortSword')).toBe(true);
+  });
 });

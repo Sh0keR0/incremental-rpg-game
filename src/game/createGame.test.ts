@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { STAGES } from './content/stages.ts';
 import { createGame, type Game } from './createGame.ts';
+import { createMemoryStorage, type SaveStorage } from './persistence/storage.ts';
 
 // Actions enqueue commands that the always-running loop drains on the next
 // tick, so tests drive a manual frame pump: enqueue via an action, then tick().
@@ -210,6 +211,60 @@ describe('createGame', () => {
     }
 
     expect(onStatsChanged).toHaveBeenCalledWith(expect.objectContaining({ unspentPoints: 1 }));
+  });
+});
+
+describe('createGame save/load', () => {
+  // Same manual frame pump as newGame(), but with an injectable storage so two
+  // game instances can share one save and we can assert a persistence round-trip.
+  function pumpWith(storage: SaveStorage) {
+    let queuedFrame: (() => void) | null = null;
+    let clock = 0;
+    const game = createGame({
+      storage,
+      rng: () => 0,
+      now: () => clock,
+      requestFrame: (callback) => {
+        queuedFrame = callback;
+        return 1;
+      },
+      cancelFrame: () => {
+        queuedFrame = null;
+      },
+    });
+    game.start();
+    const tick = (deltaMs = 16): void => {
+      clock += deltaMs;
+      const frame = queuedFrame;
+      queuedFrame = null;
+      frame?.();
+    };
+    return { game, tick };
+  }
+
+  test('load returns false and hasSave is false with empty storage', () => {
+    const game = createGame({ storage: createMemoryStorage() });
+    expect(game.hasSave()).toBe(false);
+    expect(game.load()).toBe(false);
+  });
+
+  test('save then load into a fresh game restores the full snapshot', () => {
+    const storage = createMemoryStorage();
+
+    const first = pumpWith(storage);
+    // Mutate state across several attacks so the snapshot is non-default.
+    for (let hit = 0; hit < 10; hit++) {
+      first.game.actions.attack();
+      first.tick();
+    }
+    const expected = first.game.getState();
+    first.game.save();
+    expect(storage.read()).not.toBeNull();
+
+    const second = pumpWith(storage);
+    expect(second.game.hasSave()).toBe(true);
+    expect(second.game.load()).toBe(true);
+    expect(second.game.getState()).toEqual(expected);
   });
 });
 
