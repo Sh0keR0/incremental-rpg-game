@@ -1,5 +1,5 @@
 import type { EnemyTemplate } from '../content/enemies.ts';
-import { getNextStageId, getStageById, type StageDefinition, STAGES } from '../content/stages.ts';
+import { getNextStage, getStageById, type StageDefinition, STAGES } from '../content/stages.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
 
 export type StageMode = 'normal' | 'boss';
@@ -73,7 +73,7 @@ export class Stages implements IGameComponent {
   }
 
   canFightBoss(): boolean {
-    return this.mode === 'normal' && this.progressFor(this.currentStageId).bossUnlocked;
+    return this.mode === 'normal' && this.isBossUnlocked(this.currentStageId);
   }
 
   registerNormalKill(): void {
@@ -100,24 +100,22 @@ export class Stages implements IGameComponent {
 
   completeBossFight(): void {
     this.mode = 'normal';
-    const nextStageId = getNextStageId(this.currentStageId);
-    if (nextStageId === undefined) return; // final stage cleared — stay put
+    const nextStage = getNextStage(this.currentStageId);
+    if (nextStage === undefined) return; // final stage cleared — stay put
 
-    const nextStage = getStageById(nextStageId);
-    if (nextStage === undefined) return;
-    if (!this.unlockedStageIds.includes(nextStageId)) {
-      this.unlockedStageIds.push(nextStageId);
-      this.gameContext.emit('stageUnlocked', { stageId: nextStageId, stageName: nextStage.name });
+    if (!this.isUnlocked(nextStage.id)) {
+      this.unlockedStageIds.push(nextStage.id);
+      this.gameContext.emit('stageUnlocked', { stageId: nextStage.id, stageName: nextStage.name });
     }
     // Switch to the new stage but don't emit stageSelected: Combat already
     // spawns the next enemy itself after the enemyDefeated fact that drove this
     // boss completion, and it reads the updated current stage here.
-    this.currentStageId = nextStageId;
+    this.currentStageId = nextStage.id;
   }
 
   selectStage(stageId: string): boolean {
     if (this.mode !== 'normal') return false;
-    if (!this.unlockedStageIds.includes(stageId)) return false;
+    if (!this.isUnlocked(stageId)) return false;
     if (stageId === this.currentStageId) return false;
     this.currentStageId = stageId;
     const stage = getStageById(stageId);
@@ -127,8 +125,7 @@ export class Stages implements IGameComponent {
 
   getState(): StagesState {
     const stage = this.getCurrentStage();
-    const progress = this.progressByStageId[this.currentStageId];
-    const kills = progress?.kills ?? 0;
+    const kills = this.progressByStageId[this.currentStageId]?.kills ?? 0;
     return {
       prevStageId: this.navigableNeighborId(-1),
       nextStageId: this.navigableNeighborId(1),
@@ -136,17 +133,21 @@ export class Stages implements IGameComponent {
       currentStageName: stage.name,
       kills: Math.min(kills, stage.killsToUnlockBoss),
       killsToUnlockBoss: stage.killsToUnlockBoss,
-      bossUnlocked: progress?.bossUnlocked ?? false,
+      bossUnlocked: this.isBossUnlocked(stage.id),
       mode: this.mode,
       bossTimeRemainingMs: this.bossTimeRemainingMs,
       bossTimeLimitMs: stage.bossTimeLimitMs,
-      stages: STAGES.map((definition) => ({
-        id: definition.id,
-        name: definition.name,
-        unlocked: this.unlockedStageIds.includes(definition.id),
-        bossUnlocked: this.progressByStageId[definition.id]?.bossUnlocked ?? false,
-        isCurrent: definition.id === this.currentStageId,
-      })),
+      stages: STAGES.map((definition) => this.describeStage(definition)),
+    };
+  }
+
+  private describeStage(definition: StageDefinition): StageOverview {
+    return {
+      id: definition.id,
+      name: definition.name,
+      unlocked: this.isUnlocked(definition.id),
+      bossUnlocked: this.isBossUnlocked(definition.id),
+      isCurrent: definition.id === this.currentStageId,
     };
   }
 
@@ -173,7 +174,7 @@ export class Stages implements IGameComponent {
     this.unlockedStageIds = (saved.unlockedStageIds ?? []).filter((stageId) =>
       validIds.has(stageId),
     );
-    if (!this.unlockedStageIds.includes(STAGES[0].id)) {
+    if (!this.isUnlocked(STAGES[0].id)) {
       this.unlockedStageIds.unshift(STAGES[0].id);
     }
 
@@ -194,8 +195,16 @@ export class Stages implements IGameComponent {
     if (this.mode !== 'normal') return undefined;
     const currentIndex = STAGES.findIndex((stage) => stage.id === this.currentStageId);
     const neighbor = STAGES[currentIndex + offset];
-    if (!neighbor || !this.unlockedStageIds.includes(neighbor.id)) return undefined;
+    if (!neighbor || !this.isUnlocked(neighbor.id)) return undefined;
     return neighbor.id;
+  }
+
+  private isUnlocked(stageId: string): boolean {
+    return this.unlockedStageIds.includes(stageId);
+  }
+
+  private isBossUnlocked(stageId: string): boolean {
+    return this.progressByStageId[stageId]?.bossUnlocked ?? false;
   }
 
   private progressFor(stageId: string): StageProgress {

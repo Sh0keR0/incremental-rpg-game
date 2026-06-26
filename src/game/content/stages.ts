@@ -57,10 +57,14 @@ export function getStageById(id: string): StageDefinition | undefined {
   return STAGES.find((stage) => stage.id === id);
 }
 
-export function getNextStageId(id: string): string | undefined {
+export function getNextStage(id: string): StageDefinition | undefined {
   const index = STAGES.findIndex((stage) => stage.id === id);
   if (index === -1) return undefined;
-  return STAGES[index + 1]?.id;
+  return STAGES[index + 1];
+}
+
+export function getNextStageId(id: string): string | undefined {
+  return getNextStage(id)?.id;
 }
 
 export function spawnStageEnemy(stage: StageDefinition, rng: () => number): Enemy {
