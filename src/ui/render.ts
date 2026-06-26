@@ -1,15 +1,17 @@
 import {
+  type FeatureKey,
   getNavigableStageId,
   getStageById,
   type GameSnapshot,
   type StagesState,
   type StatName,
+  type UnlocksState,
 } from '../game/index.ts';
 import type { InventoryData } from '../game/components/Inventory.ts';
 
 export const TEMPLATE = `
   <div class="game">
-    <section class="stage-panel">
+    <section class="stage-panel foldable" data-feature="stage">
       <div class="stage-selector">
         <button class="stage-arrow stage-prev" type="button" aria-label="Previous stage">‹</button>
         <h2 class="stage-name"></h2>
@@ -29,14 +31,14 @@ export const TEMPLATE = `
       <span class="attack-cooldown"></span>
     </button>
     <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
-    <section class="player-panel">
+    <section class="player-panel foldable" data-feature="exp">
       <div class="player-level"></div>
       <div class="bar exp-bar">
         <div class="bar-fill"></div>
         <span class="bar-label"></span>
       </div>
     </section>
-    <section class="stats-panel">
+    <section class="stats-panel foldable" data-feature="stats">
       <h3 class="stats-title">Stats <span class="stats-points"></span></h3>
       <div class="stats-list">
         <div class="stat-row" data-stat="strength">
@@ -56,7 +58,7 @@ export const TEMPLATE = `
         </div>
       </div>
     </section>
-    <section class="inventory-panel">
+    <section class="inventory-panel foldable" data-feature="inventory">
       <h3 class="inventory-title">Inventory</h3>
       <div id="inventory" class="inventory-grid">
 <!--        ${Array.from({ length: 25 }, (_, index) => `<div data-inventory-slot="${index}" class="inventory-slot"></div>`).join('')}-->
@@ -151,6 +153,19 @@ export function render(root: HTMLElement, state: GameSnapshot): void {
   const level = root.querySelector<HTMLElement>('.player-level');
   if (level) level.textContent = `Level ${player.level}`;
   setBar(root, '.exp-bar', player.exp, player.expToNext, `${player.exp} / ${player.expToNext} EXP`);
+
+  applyUnlocks(root, state.unlocks);
+}
+
+function applyUnlocks(root: HTMLElement, unlocks: UnlocksState): void {
+  for (const section of root.querySelectorAll<HTMLElement>('[data-feature]')) {
+    const feature = section.dataset.feature as FeatureKey;
+    section.classList.toggle('revealed', unlocks.unlocked.includes(feature));
+  }
+}
+
+export function revealFeature(root: HTMLElement, feature: FeatureKey): void {
+  root.querySelector<HTMLElement>(`[data-feature="${feature}"]`)?.classList.add('revealed');
 }
 
 export function renderStats(root: HTMLElement, state: GameSnapshot): void {
