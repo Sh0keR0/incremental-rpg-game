@@ -264,15 +264,23 @@ replayable). The rule:
 
 ```
 src/game/
-  index.ts          public barrel — createGame + types ONLY (no components)
+  index.ts          public barrel — createGame, types, + static content (no engine/components)
   GameCore.ts       the engine: loop, components, command queue, event bus
   createGame.ts     composition: component list, actions (enqueue commands), Game facade + GameSnapshot
   types.ts          GLOBAL/engine types only: IGameComponent, GameContext, ComponentClass, GameEventMap, GameCommandMap
   components/        Player.ts, Combat.ts, Inventory.ts, PlayerStats.ts (+ their *State types) (+ tests)
   systems/          pure rules helpers (progression: expForLevel, applyExp)
-  content/          game data (enemies, items)
+  content/          game data (enemies, items, stages) + pure lookups over it
   internal/         engine plumbing (emitter, command queue)
 ```
+
+**Static content is public.** The barrel also re-exports read-only game content
+(e.g. `STAGES`, `StageDefinition`) and the pure helpers over it
+(`getStageById`, `getNavigableStageId`). This keeps component **state** purely
+dynamic — kills, unlocked set, boss timer — instead of re-forwarding static
+fields like stage names and thresholds. The UI composes a view from the dynamic
+snapshot plus the static content it imports from the barrel; it still never
+reaches past the barrel into the engine or components.
 
 **Type placement:** a component's own state type lives in and is exported from
 that component's file. `types.ts` holds only global/engine types. Game-specific

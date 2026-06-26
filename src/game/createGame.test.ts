@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
-import { createGame } from './createGame.ts';
+import { STAGES } from './content/stages.ts';
+import { createGame, type Game } from './createGame.ts';
 
 // Actions enqueue commands that the always-running loop drains on the next
 // tick, so tests drive a manual frame pump: enqueue via an action, then tick().
@@ -25,6 +26,18 @@ function newGame() {
     frame?.();
   };
   return { game, tick };
+}
+
+type GamePump = { game: Game; tick: (deltaMs?: number) => void };
+
+// Each attack enqueues a command, so a tick must follow it to drain + apply.
+function attackUntil(pump: GamePump, done: () => boolean, limit = 5000): void {
+  let safety = 0;
+  while (!done() && safety++ < limit) {
+    pump.game.actions.attack();
+    pump.tick();
+  }
+  if (safety >= limit) throw new Error('attackUntil exceeded its safety limit');
 }
 
 // This is a full-game integration test, so it exercises whatever enemy the game
@@ -77,6 +90,7 @@ describe('createGame', () => {
       name: enemy.name,
       expReward: enemy.expReward,
       drops: enemy.drops, // rng: () => 0 rolls every drop
+      isBoss: false,
     });
     expect(game.getState().combat.enemy.hp).toBe(game.getState().combat.enemy.maxHp); // fresh enemy
   });
@@ -153,5 +167,109 @@ describe('createGame', () => {
     }
 
     expect(onStatsChanged).toHaveBeenCalledWith(expect.objectContaining({ unspentPoints: 1 }));
+  });
+});
+
+describe('createGame stage system', () => {
+  const FIRST = STAGES[0];
+  const SECOND = STAGES[1];
+
+  test('starts on the first stage with the boss locked', () => {
+    const state = newGame().game.getState();
+    expect(state.stages.currentStageId).toBe(FIRST.id);
+    expect(state.stages.bossUnlocked).toBe(false);
+    expect(state.combat.isBoss).toBe(false);
+  });
+
+  test('clearing enough enemies unlocks the boss', () => {
+    const pump = newGame();
+    const onUnlocked = vi.fn();
+    pump.game.on('bossUnlocked', onUnlocked);
+
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+
+    expect(onUnlocked).toHaveBeenCalledWith({ stageId: FIRST.id });
+  });
+
+  test('fightBoss is ignored until the boss is unlocked', () => {
+    const pump = newGame();
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().stages.mode).toBe('normal');
+    expect(pump.game.getState().combat.isBoss).toBe(false);
+  });
+
+  test('fighting and defeating the boss unlocks and advances to the next stage', () => {
+    const pump = newGame();
+    const onStageUnlocked = vi.fn();
+    pump.game.on('stageUnlocked', onStageUnlocked);
+
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().combat.isBoss).toBe(true);
+
+    attackUntil(pump, () => pump.game.getState().stages.currentStageId !== FIRST.id);
+
+    expect(pump.game.getState().stages.currentStageId).toBe(SECOND.id);
+    expect(pump.game.getState().combat.isBoss).toBe(false); // back to normal enemies
+    expect(onStageUnlocked).toHaveBeenCalledWith({ stageId: SECOND.id });
+  });
+
+  test('defeating the boss spawns exactly one replacement enemy (no double spawn)', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().combat.isBoss).toBe(true);
+
+    // Listen only across the killing blow: the boss is already up, so the sole
+    // spawn during this window is the single normal enemy that replaces it.
+    // A regression that re-emitted stageSelected from completeBossFight would
+    // spawn twice and trip this.
+    const onSpawned = vi.fn();
+    pump.game.on('enemySpawned', onSpawned);
+    attackUntil(pump, () => pump.game.getState().stages.currentStageId !== FIRST.id);
+
+    expect(onSpawned).toHaveBeenCalledTimes(1);
+    expect(pump.game.getState().combat.isBoss).toBe(false);
+  });
+
+  test('player can move back to an earlier unlocked stage, keeping its progress', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    attackUntil(pump, () => pump.game.getState().stages.currentStageId === SECOND.id);
+
+    pump.game.actions.selectStage(FIRST.id);
+    pump.tick();
+    expect(pump.game.getState().stages.currentStageId).toBe(FIRST.id);
+    expect(pump.game.getState().stages.bossUnlocked).toBe(true); // first stage stayed cleared
+  });
+
+  test('selecting a locked stage does nothing', () => {
+    const pump = newGame();
+    const last = STAGES[STAGES.length - 1];
+    pump.game.actions.selectStage(last.id);
+    pump.tick();
+    expect(pump.game.getState().stages.currentStageId).toBe(FIRST.id);
+  });
+
+  test('letting the boss timer expire fails the fight and returns to normal enemies', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().stages.mode).toBe('boss');
+
+    const onFailed = vi.fn();
+    pump.game.on('bossFailed', onFailed);
+    // One long frame drains the boss timer in Stages.onTick.
+    pump.tick(FIRST.bossTimeLimitMs + 1000);
+
+    expect(pump.game.getState().stages.mode).toBe('normal');
+    expect(pump.game.getState().combat.isBoss).toBe(false);
+    expect(onFailed).toHaveBeenCalledWith({ stageId: FIRST.id });
   });
 });

@@ -1,6 +1,7 @@
 import { type CombatState, Combat } from './components/Combat.ts';
 import { type PlayerState, Player } from './components/Player.ts';
 import { type PlayerStatsState, PlayerStats } from './components/PlayerStats.ts';
+import { type StagesState, Stages } from './components/Stages.ts';
 import { GameCore, type GameCoreOptions } from './GameCore.ts';
 import type { GameEventMap, GameEventName, StatName } from './types.ts';
 import Inventory, { type InventoryData } from './components/Inventory.ts';
@@ -12,6 +13,7 @@ export interface GameSnapshot {
   combat: CombatState;
   inventory: InventoryData;
   stats: PlayerStatsState;
+  stages: StagesState;
 }
 
 export interface Game {
@@ -21,19 +23,25 @@ export interface Game {
   actions: {
     attack(): void;
     allocateStat(statName: StatName): void;
+    fightBoss(): void;
+    selectStage(stageId: string): void;
   };
   start(): void;
   stop(): void;
 }
 
 export function createGame(options: GameOptions = {}): Game {
-  const core = new GameCore({ ...options, components: [Player, Combat, Inventory, PlayerStats] });
+  const core = new GameCore({
+    ...options,
+    components: [Player, Stages, Combat, Inventory, PlayerStats],
+  });
 
   const getState = (): GameSnapshot => ({
     player: core.getGameComponent(Player).getState(),
     combat: core.getGameComponent(Combat).getState(),
     inventory: core.getGameComponent(Inventory).getState(),
     stats: core.getGameComponent(PlayerStats).getState(),
+    stages: core.getGameComponent(Stages).getState(),
   });
 
   return {
@@ -50,6 +58,12 @@ export function createGame(options: GameOptions = {}): Game {
       },
       allocateStat(statName: StatName) {
         core.enqueueCommand('allocateStat', { statName });
+      },
+      fightBoss() {
+        core.enqueueCommand('fightBoss', {});
+      },
+      selectStage(stageId: string) {
+        core.enqueueCommand('selectStage', { stageId });
       },
     },
     start() {

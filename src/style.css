@@ -35,6 +35,75 @@ body {
   text-align: center;
 }
 
+.stage-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.stage-arrow {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.stage-arrow:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.stage-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.stage-name {
+  margin: 0;
+  min-width: 8ch;
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+.stage-progress {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.enemy-panel.boss .enemy-name {
+  color: var(--accent);
+}
+
+.fight-boss-btn {
+  padding: 0.7rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  background: #8e2de2;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.05s ease, filter 0.15s ease;
+}
+
+.fight-boss-btn:hover {
+  filter: brightness(1.15);
+}
+
+.fight-boss-btn:active {
+  transform: scale(0.96);
+}
+
 .enemy-name {
   margin: 0 0 0.75rem;
   font-size: 1.5rem;
