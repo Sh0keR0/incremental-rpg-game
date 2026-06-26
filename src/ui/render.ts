@@ -26,6 +26,7 @@ export const TEMPLATE = `
     </section>
     <button class="attack-btn" type="button">Attack</button>
     <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
+    <button class="reset-btn" type="button">Reset</button>
     <section class="player-panel">
       <div class="player-level"></div>
       <div class="bar exp-bar">

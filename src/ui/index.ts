@@ -1,6 +1,8 @@
 import { getNavigableStageId, getStageById, type Game, type StatName } from '../game/index.ts';
 import { render, renderStats, TEMPLATE, updateInventoryUI } from './render.ts';
 
+const AUTOSAVE_INTERVAL_MS = 10_000;
+
 function floater(layer: HTMLElement, text: string, className: string): void {
   const element = document.createElement('div');
   element.className = `floater ${className}`;
@@ -17,6 +19,11 @@ export function mountUI(game: Game, root: HTMLElement): void {
 
   root.querySelector<HTMLButtonElement>('.attack-btn')?.addEventListener('click', () => {
     game.actions.attack();
+  });
+  root.querySelector<HTMLButtonElement>('.reset-btn')?.addEventListener('click', () => {
+    if (!confirm('Reset all progress and start a new game?')) return;
+    game.clearSave();
+    location.reload();
   });
   root.querySelector<HTMLButtonElement>('.fight-boss-btn')?.addEventListener('click', () => {
     game.actions.fightBoss();
@@ -52,9 +59,17 @@ export function mountUI(game: Game, root: HTMLElement): void {
   game.on('stageUnlocked', (event) =>
     floater(fxLayer, `${getStageById(event.stageId)?.name ?? 'New stage'} unlocked!`, 'levelup'),
   );
+  game.load();
   const initialState = game.getState();
   render(view, initialState);
   renderStats(view, initialState);
   updateInventoryUI(initialState.inventory);
+
+  setInterval(() => game.save(), AUTOSAVE_INTERVAL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') game.save();
+  });
+  window.addEventListener('beforeunload', () => game.save());
+
   game.start();
 }

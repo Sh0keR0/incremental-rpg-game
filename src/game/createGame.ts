@@ -3,10 +3,14 @@ import { type PlayerState, Player } from './components/Player.ts';
 import { type PlayerStatsState, PlayerStats } from './components/PlayerStats.ts';
 import { type StagesState, Stages } from './components/Stages.ts';
 import { GameCore, type GameCoreOptions } from './GameCore.ts';
+import { parseSave, serializeSave } from './persistence/saveData.ts';
+import { createLocalStorageAdapter, type SaveStorage } from './persistence/storage.ts';
 import type { GameEventMap, GameEventName, StatName } from './types.ts';
 import Inventory, { type InventoryData } from './components/Inventory.ts';
 
-export type GameOptions = Omit<GameCoreOptions, 'components'>;
+export type GameOptions = Omit<GameCoreOptions, 'components'> & {
+  storage?: SaveStorage;
+};
 
 export interface GameSnapshot {
   player: PlayerState;
@@ -28,11 +32,17 @@ export interface Game {
   };
   start(): void;
   stop(): void;
+  save(): void;
+  load(): boolean;
+  hasSave(): boolean;
+  clearSave(): void;
 }
 
 export function createGame(options: GameOptions = {}): Game {
+  const { storage = createLocalStorageAdapter(), ...coreOptions } = options;
+  const now = coreOptions.now ?? (() => performance.now());
   const core = new GameCore({
-    ...options,
+    ...coreOptions,
     components: [Player, Stages, Combat, Inventory, PlayerStats],
   });
 
@@ -71,6 +81,21 @@ export function createGame(options: GameOptions = {}): Game {
     },
     stop() {
       core.stop();
+    },
+    save() {
+      storage.write(serializeSave(core.save(), now()));
+    },
+    load() {
+      const data = parseSave(storage.read());
+      if (!data) return false;
+      core.load(data);
+      return true;
+    },
+    hasSave() {
+      return parseSave(storage.read()) !== null;
+    },
+    clearSave() {
+      storage.clear();
     },
   };
 }

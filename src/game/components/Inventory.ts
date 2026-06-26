@@ -60,8 +60,12 @@ class Inventory implements IGameComponent {
     return this.inventoryData;
   }
 
+  // JSON serialization turns empty (undefined) slots into null. findFirstAvailable
+  // matches `=== undefined`, so a loaded grid full of nulls would look permanently
+  // full — normalize back to undefined here.
   load(data: InventoryData): void {
-    this.inventoryData = data;
+    const slots = data.slots.map((row) => row.map((slot) => slot ?? undefined));
+    this.inventoryData = { slots };
   }
 
   save(): unknown {
