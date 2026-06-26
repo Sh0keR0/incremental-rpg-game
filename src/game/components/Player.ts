@@ -15,6 +15,7 @@ export class Player implements IGameComponent {
 
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
+    gameContext.on('enemyDefeated', ({ expReward }) => this.gainExp(expReward));
   }
 
   getAttack(): number {

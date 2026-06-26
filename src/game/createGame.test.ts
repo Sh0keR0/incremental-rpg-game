@@ -1,8 +1,43 @@
 import { describe, expect, test, vi } from 'vitest';
-import { createGame } from './createGame.ts';
+import { STAGES } from './content/stages.ts';
+import { createGame, type Game } from './createGame.ts';
 
+// Actions enqueue commands that the always-running loop drains on the next
+// tick, so tests drive a manual frame pump: enqueue via an action, then tick().
 function newGame() {
-  return createGame({ rng: () => 0 });
+  let queuedFrame: (() => void) | null = null;
+  let clock = 0;
+  const game = createGame({
+    rng: () => 0,
+    now: () => clock,
+    requestFrame: (callback) => {
+      queuedFrame = callback;
+      return 1;
+    },
+    cancelFrame: () => {
+      queuedFrame = null;
+    },
+  });
+  game.start();
+  const tick = (deltaMs = 16): void => {
+    clock += deltaMs;
+    const frame = queuedFrame;
+    queuedFrame = null;
+    frame?.();
+  };
+  return { game, tick };
+}
+
+type GamePump = { game: Game; tick: (deltaMs?: number) => void };
+
+// Each attack enqueues a command, so a tick must follow it to drain + apply.
+function attackUntil(pump: GamePump, done: () => boolean, limit = 5000): void {
+  let safety = 0;
+  while (!done() && safety++ < limit) {
+    pump.game.actions.attack();
+    pump.tick();
+  }
+  if (safety >= limit) throw new Error('attackUntil exceeded its safety limit');
 }
 
 // This is a full-game integration test, so it exercises whatever enemy the game
@@ -11,14 +46,14 @@ function newGame() {
 
 describe('createGame', () => {
   test('exposes initial player and enemy state', () => {
-    const state = newGame().getState();
+    const state = newGame().game.getState();
     expect(state.player.level).toBe(1);
     expect(state.combat.enemy.hp).toBe(state.combat.enemy.maxHp);
     expect(state.combat.enemy.name).toBeTruthy();
   });
 
   test('attack lowers enemy HP and notifies subscribers + events', () => {
-    const game = newGame();
+    const { game, tick } = newGame();
     const { attack } = game.getState().player;
     const enemy = game.getState().combat.enemy;
     const onState = vi.fn();
@@ -27,6 +62,8 @@ describe('createGame', () => {
     game.on('attacked', onAttacked);
 
     game.actions.attack();
+    tick();
+
     expect(game.getState().combat.enemy.hp).toBe(enemy.hp - attack);
     expect(onState).toHaveBeenCalledTimes(1);
     expect(onAttacked).toHaveBeenCalledWith({
@@ -37,31 +74,54 @@ describe('createGame', () => {
   });
 
   test('killing an enemy awards EXP and respawns', () => {
-    const game = newGame();
+    const { game, tick } = newGame();
     const { attack } = game.getState().player;
     const enemy = game.getState().combat.enemy;
     const hitsToKill = Math.ceil(enemy.maxHp / attack);
     const onDefeated = vi.fn();
     game.on('enemyDefeated', onDefeated);
 
-    for (let hit = 0; hit < hitsToKill; hit++) game.actions.attack();
+    for (let hit = 0; hit < hitsToKill; hit++) {
+      game.actions.attack();
+      tick();
+    }
 
     expect(onDefeated).toHaveBeenCalledWith({
       name: enemy.name,
       expReward: enemy.expReward,
       drops: enemy.drops, // rng: () => 0 rolls every drop
+      isBoss: false,
     });
     expect(game.getState().combat.enemy.hp).toBe(game.getState().combat.enemy.maxHp); // fresh enemy
   });
 
+  test('killing an enemy drops its loot into the inventory', () => {
+    const { game, tick } = newGame();
+    const { attack } = game.getState().player;
+    const enemy = game.getState().combat.enemy;
+    const hitsToKill = Math.ceil(enemy.maxHp / attack);
+
+    for (let hit = 0; hit < hitsToKill; hit++) {
+      game.actions.attack();
+      tick();
+    }
+
+    // Inventory reacts to enemyDefeated; rng: () => 0 rolls every drop.
+    const itemsInBag = game.getState().inventory.slots.flat().filter(Boolean);
+    for (const drop of enemy.drops) {
+      expect(itemsInBag).toContain(drop.itemId);
+    }
+  });
+
   test('accumulated EXP eventually levels the player up', () => {
-    const game = newGame();
+    const { game, tick } = newGame();
     const onLevelUp = vi.fn();
     game.on('leveledUp', onLevelUp);
 
     let safety = 0;
     while (game.getState().player.level < 2 && safety++ < 1000) {
       game.actions.attack();
+      tick();
     }
 
     expect(onLevelUp).toHaveBeenCalledWith({ level: 2 });
@@ -69,7 +129,7 @@ describe('createGame', () => {
   });
 
   test('initial snapshot includes default stats', () => {
-    const state = newGame().getState();
+    const state = newGame().game.getState();
     expect(state.stats).toEqual({
       unspentPoints: 0,
       stats: { strength: 0, agility: 0, endurance: 0 },
@@ -77,49 +137,156 @@ describe('createGame', () => {
   });
 
   test('level up awards stat points and allocateStat spends them', () => {
-    const game = newGame();
+    const { game, tick } = newGame();
 
     let safety = 0;
     while (game.getState().player.level < 2 && safety++ < 1000) {
       game.actions.attack();
+      tick();
     }
 
+    // Synchronous events: the point awarded by the leveledUp reaction lands in
+    // the same tick/snapshot as the level-up — no one-frame lag.
     expect(game.getState().stats.unspentPoints).toBe(1);
 
     game.actions.allocateStat('strength');
+    tick();
     expect(game.getState().stats.stats.strength).toBe(1);
     expect(game.getState().stats.unspentPoints).toBe(0);
   });
 
   test('no features are unlocked initially', () => {
-    expect(newGame().getState().unlocks).toEqual({ unlocked: [] });
+    expect(newGame().game.getState().unlocks).toEqual({ unlocked: [] });
   });
 
   test('inventory unlocks and featureUnlocked fires once an enemy drops an item', () => {
-    const game = newGame(); // rng: () => 0 rolls every drop, so the first kill yields loot
+    const pump = newGame();
     const onUnlocked = vi.fn();
-    game.on('featureUnlocked', onUnlocked);
+    pump.game.on('featureUnlocked', onUnlocked);
 
-    const enemy = game.getState().combat.enemy;
-    expect(enemy.drops.length).toBeGreaterThan(0);
-    const { attack } = game.getState().player;
-    const hitsToKill = Math.ceil(enemy.maxHp / attack);
-    for (let hit = 0; hit < hitsToKill; hit++) game.actions.attack();
+    // rng: () => 0 rolls every drop, so the first kill yields loot.
+    expect(pump.game.getState().combat.enemy.drops.length).toBeGreaterThan(0);
+    attackUntil(pump, () => pump.game.getState().unlocks.unlocked.includes('inventory'));
 
-    expect(game.getState().unlocks.unlocked).toContain('inventory');
+    expect(pump.game.getState().unlocks.unlocked).toContain('inventory');
     expect(onUnlocked).toHaveBeenCalledWith({ feature: 'inventory' });
   });
 
   test('statsChanged event fires on level up', () => {
-    const game = newGame();
+    const { game, tick } = newGame();
     const onStatsChanged = vi.fn();
     game.on('statsChanged', onStatsChanged);
 
     let safety = 0;
     while (game.getState().player.level < 2 && safety++ < 1000) {
       game.actions.attack();
+      tick();
     }
 
     expect(onStatsChanged).toHaveBeenCalledWith(expect.objectContaining({ unspentPoints: 1 }));
+  });
+});
+
+describe('createGame stage system', () => {
+  const FIRST = STAGES[0];
+  const SECOND = STAGES[1];
+
+  test('starts on the first stage with the boss locked', () => {
+    const state = newGame().game.getState();
+    expect(state.stages.currentStageId).toBe(FIRST.id);
+    expect(state.stages.bossUnlocked).toBe(false);
+    expect(state.combat.isBoss).toBe(false);
+  });
+
+  test('clearing enough enemies unlocks the boss', () => {
+    const pump = newGame();
+    const onUnlocked = vi.fn();
+    pump.game.on('bossUnlocked', onUnlocked);
+
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+
+    expect(onUnlocked).toHaveBeenCalledWith({ stageId: FIRST.id });
+  });
+
+  test('fightBoss is ignored until the boss is unlocked', () => {
+    const pump = newGame();
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().stages.mode).toBe('normal');
+    expect(pump.game.getState().combat.isBoss).toBe(false);
+  });
+
+  test('fighting and defeating the boss unlocks and advances to the next stage', () => {
+    const pump = newGame();
+    const onStageUnlocked = vi.fn();
+    pump.game.on('stageUnlocked', onStageUnlocked);
+
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().combat.isBoss).toBe(true);
+
+    attackUntil(pump, () => pump.game.getState().stages.currentStageId !== FIRST.id);
+
+    expect(pump.game.getState().stages.currentStageId).toBe(SECOND.id);
+    expect(pump.game.getState().combat.isBoss).toBe(false); // back to normal enemies
+    expect(onStageUnlocked).toHaveBeenCalledWith({ stageId: SECOND.id });
+  });
+
+  test('defeating the boss spawns exactly one replacement enemy (no double spawn)', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().combat.isBoss).toBe(true);
+
+    // Listen only across the killing blow: the boss is already up, so the sole
+    // spawn during this window is the single normal enemy that replaces it.
+    // A regression that re-emitted stageSelected from completeBossFight would
+    // spawn twice and trip this.
+    const onSpawned = vi.fn();
+    pump.game.on('enemySpawned', onSpawned);
+    attackUntil(pump, () => pump.game.getState().stages.currentStageId !== FIRST.id);
+
+    expect(onSpawned).toHaveBeenCalledTimes(1);
+    expect(pump.game.getState().combat.isBoss).toBe(false);
+  });
+
+  test('player can move back to an earlier unlocked stage, keeping its progress', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    attackUntil(pump, () => pump.game.getState().stages.currentStageId === SECOND.id);
+
+    pump.game.actions.selectStage(FIRST.id);
+    pump.tick();
+    expect(pump.game.getState().stages.currentStageId).toBe(FIRST.id);
+    expect(pump.game.getState().stages.bossUnlocked).toBe(true); // first stage stayed cleared
+  });
+
+  test('selecting a locked stage does nothing', () => {
+    const pump = newGame();
+    const last = STAGES[STAGES.length - 1];
+    pump.game.actions.selectStage(last.id);
+    pump.tick();
+    expect(pump.game.getState().stages.currentStageId).toBe(FIRST.id);
+  });
+
+  test('letting the boss timer expire fails the fight and returns to normal enemies', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    expect(pump.game.getState().stages.mode).toBe('boss');
+
+    const onFailed = vi.fn();
+    pump.game.on('bossFailed', onFailed);
+    // One long frame drains the boss timer in Stages.onTick.
+    pump.tick(FIRST.bossTimeLimitMs + 1000);
+
+    expect(pump.game.getState().stages.mode).toBe('normal');
+    expect(pump.game.getState().combat.isBoss).toBe(false);
+    expect(onFailed).toHaveBeenCalledWith({ stageId: FIRST.id });
   });
 });

@@ -1,6 +1,7 @@
 import { type CombatState, Combat } from './components/Combat.ts';
 import { type PlayerState, Player } from './components/Player.ts';
 import { type PlayerStatsState, PlayerStats } from './components/PlayerStats.ts';
+import { type StagesState, Stages } from './components/Stages.ts';
 import { GameCore, type GameCoreOptions } from './GameCore.ts';
 import type { GameEventMap, GameEventName, StatName } from './types.ts';
 import Inventory, { type InventoryData } from './components/Inventory.ts';
@@ -13,6 +14,7 @@ export interface GameSnapshot {
   combat: CombatState;
   inventory: InventoryData;
   stats: PlayerStatsState;
+  stages: StagesState;
   unlocks: UnlocksState;
 }
 
@@ -23,6 +25,8 @@ export interface Game {
   actions: {
     attack(): void;
     allocateStat(statName: StatName): void;
+    fightBoss(): void;
+    selectStage(stageId: string): void;
   };
   start(): void;
   stop(): void;
@@ -31,7 +35,7 @@ export interface Game {
 export function createGame(options: GameOptions = {}): Game {
   const core = new GameCore({
     ...options,
-    components: [Player, Combat, Inventory, PlayerStats, Unlocks],
+    components: [Player, Stages, Combat, Inventory, PlayerStats, Unlocks],
   });
 
   const getState = (): GameSnapshot => ({
@@ -39,6 +43,7 @@ export function createGame(options: GameOptions = {}): Game {
     combat: core.getGameComponent(Combat).getState(),
     inventory: core.getGameComponent(Inventory).getState(),
     stats: core.getGameComponent(PlayerStats).getState(),
+    stages: core.getGameComponent(Stages).getState(),
     unlocks: core.getGameComponent(Unlocks).getState(),
   });
 
@@ -52,16 +57,16 @@ export function createGame(options: GameOptions = {}): Game {
     },
     actions: {
       attack() {
-        core.dispatch(() => {
-          const player = core.getGameComponent(Player);
-          const combat = core.getGameComponent(Combat);
-          combat.damageEnemy(player.getAttack());
-        });
+        core.enqueueCommand('attack', {});
       },
       allocateStat(statName: StatName) {
-        core.dispatch(() => {
-          core.getGameComponent(PlayerStats).allocateStat(statName);
-        });
+        core.enqueueCommand('allocateStat', { statName });
+      },
+      fightBoss() {
+        core.enqueueCommand('fightBoss', {});
+      },
+      selectStage(stageId: string) {
+        core.enqueueCommand('selectStage', { stageId });
       },
     },
     start() {

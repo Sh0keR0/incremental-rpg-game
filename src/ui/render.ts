@@ -1,8 +1,24 @@
-import type { FeatureKey, GameSnapshot, StatName, UnlocksState } from '../game/index.ts';
+import {
+  type FeatureKey,
+  getNavigableStageId,
+  getStageById,
+  type GameSnapshot,
+  type StagesState,
+  type StatName,
+  type UnlocksState,
+} from '../game/index.ts';
 import type { InventoryData } from '../game/components/Inventory.ts';
 
 export const TEMPLATE = `
   <div class="game">
+    <section class="stage-panel">
+      <div class="stage-selector">
+        <button class="stage-arrow stage-prev" type="button" aria-label="Previous stage">‹</button>
+        <h2 class="stage-name"></h2>
+        <button class="stage-arrow stage-next" type="button" aria-label="Next stage">›</button>
+      </div>
+      <div class="stage-progress"></div>
+    </section>
     <section class="enemy-panel">
       <h2 class="enemy-name"></h2>
       <div class="bar hp-bar">
@@ -11,6 +27,7 @@ export const TEMPLATE = `
       </div>
     </section>
     <button class="attack-btn" type="button">Attack</button>
+    <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
     <section class="player-panel">
       <div class="player-level"></div>
       <div class="bar exp-bar">
@@ -64,12 +81,59 @@ function setBar(
   if (text) text.textContent = label;
 }
 
+function renderStageSelector(root: HTMLElement, stages: StagesState): void {
+  const canMove = stages.mode === 'normal';
+  const prev = root.querySelector<HTMLButtonElement>('.stage-prev');
+  if (prev) {
+    prev.disabled =
+      !canMove ||
+      getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, -1) === undefined;
+  }
+  const next = root.querySelector<HTMLButtonElement>('.stage-next');
+  if (next) {
+    next.disabled =
+      !canMove ||
+      getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, 1) === undefined;
+  }
+}
+
+function renderStageProgress(
+  root: HTMLElement,
+  stages: StagesState,
+  killsToUnlockBoss: number,
+): void {
+  const progress = root.querySelector<HTMLElement>('.stage-progress');
+  if (!progress) return;
+  if (stages.mode === 'boss') {
+    progress.textContent = `BOSS — ${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
+  } else if (stages.bossUnlocked) {
+    progress.textContent = 'Boss ready!';
+  } else {
+    progress.textContent = `Kills: ${stages.kills} / ${killsToUnlockBoss}`;
+  }
+}
+
 export function render(root: HTMLElement, state: GameSnapshot): void {
-  const { player } = state;
+  const { player, stages } = state;
   const enemy = state.combat.enemy;
+  const currentStage = getStageById(stages.currentStageId);
+
+  const stageName = root.querySelector<HTMLElement>('.stage-name');
+  if (stageName) stageName.textContent = currentStage?.name ?? '';
+  renderStageSelector(root, stages);
+  renderStageProgress(root, stages, currentStage?.killsToUnlockBoss ?? 0);
+
   const name = root.querySelector<HTMLElement>('.enemy-name');
   if (name) name.textContent = enemy.name;
+  root.querySelector('.enemy-panel')?.classList.toggle('boss', state.combat.isBoss);
   setBar(root, '.hp-bar', enemy.hp, enemy.maxHp, `${enemy.hp} / ${enemy.maxHp} HP`);
+
+  const fightBossButton = root.querySelector<HTMLButtonElement>('.fight-boss-btn');
+  if (fightBossButton) {
+    const canFightBoss = stages.bossUnlocked && stages.mode === 'normal';
+    fightBossButton.hidden = !canFightBoss;
+    fightBossButton.disabled = !canFightBoss;
+  }
 
   const level = root.querySelector<HTMLElement>('.player-level');
   if (level) level.textContent = `Level ${player.level}`;
