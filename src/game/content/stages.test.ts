@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { getNextStageId, getStageById, spawnStageEnemy, STAGES } from './stages.ts';
+import {
+  getNavigableStageId,
+  getNextStageId,
+  getStageById,
+  spawnStageEnemy,
+  STAGES,
+} from './stages.ts';
 
 describe('stage lookups', () => {
   test('getStageById resolves by stable id', () => {
@@ -18,6 +24,32 @@ describe('stage lookups', () => {
   test('getNextStageId returns undefined for the final stage', () => {
     const lastStage = STAGES[STAGES.length - 1];
     expect(getNextStageId(lastStage.id)).toBeUndefined();
+  });
+});
+
+describe('getNavigableStageId', () => {
+  const [first, second, third] = STAGES;
+  const allUnlocked = STAGES.map((stage) => stage.id);
+
+  test('returns the next stage when it is unlocked', () => {
+    expect(getNavigableStageId(first.id, allUnlocked, 1)).toBe(second.id);
+  });
+
+  test('returns the previous stage when it is unlocked', () => {
+    expect(getNavigableStageId(second.id, allUnlocked, -1)).toBe(first.id);
+  });
+
+  test('returns undefined when the neighbor exists but is locked', () => {
+    expect(getNavigableStageId(first.id, [first.id], 1)).toBeUndefined();
+  });
+
+  test('returns undefined past the ends of the stage list', () => {
+    expect(getNavigableStageId(first.id, allUnlocked, -1)).toBeUndefined();
+    expect(getNavigableStageId(third.id, allUnlocked, 1)).toBeUndefined();
+  });
+
+  test('returns undefined for an unknown current stage', () => {
+    expect(getNavigableStageId('atlantis', allUnlocked, 1)).toBeUndefined();
   });
 });
 

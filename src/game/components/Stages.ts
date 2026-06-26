@@ -9,26 +9,16 @@ interface StageProgress {
   bossUnlocked: boolean;
 }
 
-export interface StageOverview {
-  id: string;
-  name: string;
-  unlocked: boolean;
-  bossUnlocked: boolean;
-  isCurrent: boolean;
-}
-
+// Dynamic stage progress only. Static content (names, thresholds, ordering)
+// lives in content/stages.ts; the UI composes the two. `kills` is capped at the
+// current stage's unlock threshold so callers never see e.g. 7/5.
 export interface StagesState {
   currentStageId: string;
-  currentStageName: string;
+  unlockedStageIds: string[];
   kills: number;
-  killsToUnlockBoss: number;
   bossUnlocked: boolean;
   mode: StageMode;
   bossTimeRemainingMs: number;
-  bossTimeLimitMs: number;
-  stages: StageOverview[];
-  prevStageId?: string;
-  nextStageId?: string;
 }
 
 export class Stages implements IGameComponent {
@@ -127,27 +117,12 @@ export class Stages implements IGameComponent {
     const stage = this.getCurrentStage();
     const kills = this.progressByStageId[this.currentStageId]?.kills ?? 0;
     return {
-      prevStageId: this.navigableNeighborId(-1),
-      nextStageId: this.navigableNeighborId(1),
       currentStageId: stage.id,
-      currentStageName: stage.name,
+      unlockedStageIds: [...this.unlockedStageIds],
       kills: Math.min(kills, stage.killsToUnlockBoss),
-      killsToUnlockBoss: stage.killsToUnlockBoss,
       bossUnlocked: this.isBossUnlocked(stage.id),
       mode: this.mode,
       bossTimeRemainingMs: this.bossTimeRemainingMs,
-      bossTimeLimitMs: stage.bossTimeLimitMs,
-      stages: STAGES.map((definition) => this.describeStage(definition)),
-    };
-  }
-
-  private describeStage(definition: StageDefinition): StageOverview {
-    return {
-      id: definition.id,
-      name: definition.name,
-      unlocked: this.isUnlocked(definition.id),
-      bossUnlocked: this.isBossUnlocked(definition.id),
-      isCurrent: definition.id === this.currentStageId,
     };
   }
 
@@ -189,14 +164,6 @@ export class Stages implements IGameComponent {
         : STAGES[0].id;
     this.mode = saved.mode === 'boss' ? 'boss' : 'normal';
     this.bossTimeRemainingMs = saved.bossTimeRemainingMs ?? 0;
-  }
-
-  private navigableNeighborId(offset: number): string | undefined {
-    if (this.mode !== 'normal') return undefined;
-    const currentIndex = STAGES.findIndex((stage) => stage.id === this.currentStageId);
-    const neighbor = STAGES[currentIndex + offset];
-    if (!neighbor || !this.isUnlocked(neighbor.id)) return undefined;
-    return neighbor.id;
   }
 
   private isUnlocked(stageId: string): boolean {

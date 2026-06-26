@@ -1,4 +1,10 @@
-import type { GameSnapshot, StagesState, StatName } from '../game/index.ts';
+import {
+  getNavigableStageId,
+  getStageById,
+  type GameSnapshot,
+  type StagesState,
+  type StatName,
+} from '../game/index.ts';
 import type { InventoryData } from '../game/components/Inventory.ts';
 
 export const TEMPLATE = `
@@ -74,13 +80,26 @@ function setBar(
 }
 
 function renderStageSelector(root: HTMLElement, stages: StagesState): void {
+  const canMove = stages.mode === 'normal';
   const prev = root.querySelector<HTMLButtonElement>('.stage-prev');
-  if (prev) prev.disabled = stages.prevStageId === undefined;
+  if (prev) {
+    prev.disabled =
+      !canMove ||
+      getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, -1) === undefined;
+  }
   const next = root.querySelector<HTMLButtonElement>('.stage-next');
-  if (next) next.disabled = stages.nextStageId === undefined;
+  if (next) {
+    next.disabled =
+      !canMove ||
+      getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, 1) === undefined;
+  }
 }
 
-function renderStageProgress(root: HTMLElement, stages: StagesState): void {
+function renderStageProgress(
+  root: HTMLElement,
+  stages: StagesState,
+  killsToUnlockBoss: number,
+): void {
   const progress = root.querySelector<HTMLElement>('.stage-progress');
   if (!progress) return;
   if (stages.mode === 'boss') {
@@ -88,18 +107,19 @@ function renderStageProgress(root: HTMLElement, stages: StagesState): void {
   } else if (stages.bossUnlocked) {
     progress.textContent = 'Boss ready!';
   } else {
-    progress.textContent = `Kills: ${stages.kills} / ${stages.killsToUnlockBoss}`;
+    progress.textContent = `Kills: ${stages.kills} / ${killsToUnlockBoss}`;
   }
 }
 
 export function render(root: HTMLElement, state: GameSnapshot): void {
   const { player, stages } = state;
   const enemy = state.combat.enemy;
+  const currentStage = getStageById(stages.currentStageId);
 
   const stageName = root.querySelector<HTMLElement>('.stage-name');
-  if (stageName) stageName.textContent = stages.currentStageName;
+  if (stageName) stageName.textContent = currentStage?.name ?? '';
   renderStageSelector(root, stages);
-  renderStageProgress(root, stages);
+  renderStageProgress(root, stages, currentStage?.killsToUnlockBoss ?? 0);
 
   const name = root.querySelector<HTMLElement>('.enemy-name');
   if (name) name.textContent = enemy.name;

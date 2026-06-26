@@ -67,6 +67,21 @@ export function getNextStageId(id: string): string | undefined {
   return getNextStage(id)?.id;
 }
 
+// The unlocked stage one step in `direction` from the current one, or undefined
+// if there is none or it isn't unlocked yet. Pure: callers pass the dynamic
+// unlocked set so the UI can resolve the stage arrows from static content.
+export function getNavigableStageId(
+  currentStageId: string,
+  unlockedStageIds: readonly string[],
+  direction: -1 | 1,
+): string | undefined {
+  const index = STAGES.findIndex((stage) => stage.id === currentStageId);
+  if (index === -1) return undefined;
+  const neighbor = STAGES[index + direction];
+  if (!neighbor || !unlockedStageIds.includes(neighbor.id)) return undefined;
+  return neighbor.id;
+}
+
 export function spawnStageEnemy(stage: StageDefinition, rng: () => number): Enemy {
   const index = Math.floor(rng() * stage.enemies.length);
   const template = stage.enemies[index] ?? stage.enemies[0];

@@ -35,9 +35,7 @@ describe('Stages', () => {
     const { stages } = setup();
     const state = stages.getState();
     expect(state.currentStageId).toBe(FIRST.id);
-    expect(state.stages.filter((stage) => stage.unlocked).map((stage) => stage.id)).toEqual([
-      FIRST.id,
-    ]);
+    expect(state.unlockedStageIds).toEqual([FIRST.id]);
   });
 
   test('reacting to normal kills unlocks the boss at the threshold', () => {
@@ -176,37 +174,12 @@ describe('Stages', () => {
     expect(stages.getState().kills).toBe(2); // SECOND kept its own progress
   });
 
-  test('exposes no navigable neighbors on the first stage with nothing else unlocked', () => {
-    const { stages } = setup();
-    const state = stages.getState();
-    expect(state.prevStageId).toBeUndefined();
-    expect(state.nextStageId).toBeUndefined();
-  });
-
-  test('exposes the next stage once unlocked, and the prev stage from there', () => {
+  test('reports unlocked stages so the UI can resolve navigation', () => {
     const context = setup();
     const { stages } = context;
-    clearCurrentBoss(context, stages); // unlocks + moves to SECOND
-
-    const onSecond = stages.getState();
-    expect(onSecond.prevStageId).toBe(FIRST.id);
-    expect(onSecond.nextStageId).toBeUndefined(); // THIRD not unlocked yet
-
-    stages.selectStage(FIRST.id);
-    const onFirst = stages.getState();
-    expect(onFirst.prevStageId).toBeUndefined();
-    expect(onFirst.nextStageId).toBe(SECOND.id);
-  });
-
-  test('exposes no navigable neighbors during a boss fight', () => {
-    const context = setup();
-    const { stages } = context;
-    clearCurrentBoss(context, stages); // on SECOND, FIRST behind it
-    unlockBoss(context, SECOND.killsToUnlockBoss);
-    context.runCommand('fightBoss', {});
-    const state = stages.getState();
-    expect(state.prevStageId).toBeUndefined();
-    expect(state.nextStageId).toBeUndefined();
+    expect(stages.getState().unlockedStageIds).toEqual([FIRST.id]);
+    clearCurrentBoss(context, stages); // unlocks SECOND, moves to it
+    expect(stages.getState().unlockedStageIds).toEqual([FIRST.id, SECOND.id]);
   });
 });
 
@@ -236,20 +209,12 @@ describe('Stages save/load robustness', () => {
       unlockedStageIds: [FIRST.id, 'sunken-temple'],
       progressByStageId: { 'sunken-temple': { kills: 3, bossUnlocked: true } },
     });
-    const unlocked = stages
-      .getState()
-      .stages.filter((stage) => stage.unlocked)
-      .map((stage) => stage.id);
-    expect(unlocked).toEqual([FIRST.id]);
+    expect(stages.getState().unlockedStageIds).toEqual([FIRST.id]);
   });
 
   test('always keeps the first stage unlocked even if absent from the save', () => {
     const { stages } = setup();
     stages.load({ unlockedStageIds: [] });
-    const unlocked = stages
-      .getState()
-      .stages.filter((stage) => stage.unlocked)
-      .map((stage) => stage.id);
-    expect(unlocked).toContain(FIRST.id);
+    expect(stages.getState().unlockedStageIds).toContain(FIRST.id);
   });
 });

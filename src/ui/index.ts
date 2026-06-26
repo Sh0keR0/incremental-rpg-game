@@ -1,4 +1,4 @@
-import type { Game, StatName } from '../game/index.ts';
+import { getNavigableStageId, type Game, type StatName } from '../game/index.ts';
 import { render, renderStats, TEMPLATE, updateInventoryUI } from './render.ts';
 
 function floater(layer: HTMLElement, text: string, className: string): void {
@@ -22,11 +22,13 @@ export function mountUI(game: Game, root: HTMLElement): void {
     game.actions.fightBoss();
   });
   root.querySelector<HTMLButtonElement>('.stage-prev')?.addEventListener('click', () => {
-    const target = game.getState().stages.prevStageId;
+    const { stages } = game.getState();
+    const target = getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, -1);
     if (target) game.actions.selectStage(target);
   });
   root.querySelector<HTMLButtonElement>('.stage-next')?.addEventListener('click', () => {
-    const target = game.getState().stages.nextStageId;
+    const { stages } = game.getState();
+    const target = getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, 1);
     if (target) game.actions.selectStage(target);
   });
 
