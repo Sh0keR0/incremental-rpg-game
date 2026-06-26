@@ -3,6 +3,8 @@ import { makeTestContext } from '../testing/makeTestContext.ts';
 import { Unlocks } from './Unlocks.ts';
 
 const sampleInventory = { inventory: { slots: [] } };
+const sampleExp = { amount: 1, exp: 1, expToNext: 10 };
+const sampleStats = { stats: { strength: 0, agility: 0, endurance: 0 }, unspentPoints: 1 };
 
 function makeUnlocks() {
   const context = makeTestContext();
@@ -18,17 +20,45 @@ describe('Unlocks', () => {
     expect(unlocks.isUnlocked('inventory')).toBe(false);
   });
 
+  test('unlocks exp on the first expGained event', () => {
+    const { unlocks, simulateEvent } = makeUnlocks();
+    simulateEvent('expGained', sampleExp);
+    expect(unlocks.isUnlocked('exp')).toBe(true);
+  });
+
+  test('unlocks stats on the first statsChanged event', () => {
+    const { unlocks, simulateEvent } = makeUnlocks();
+    simulateEvent('statsChanged', sampleStats);
+    expect(unlocks.isUnlocked('stats')).toBe(true);
+  });
+
   test('unlocks inventory on the first inventoryUpdated event', () => {
     const { unlocks, simulateEvent } = makeUnlocks();
     simulateEvent('inventoryUpdated', sampleInventory);
     expect(unlocks.isUnlocked('inventory')).toBe(true);
-    expect(unlocks.getState()).toEqual({ unlocked: ['inventory'] });
+  });
+
+  test('unlocks stage on the first bossUnlocked event', () => {
+    const { unlocks, simulateEvent } = makeUnlocks();
+    simulateEvent('bossUnlocked', { stageId: 'stage-1' });
+    expect(unlocks.isUnlocked('stage')).toBe(true);
   });
 
   test('emits featureUnlocked when a feature unlocks', () => {
     const { events, simulateEvent } = makeUnlocks();
     simulateEvent('inventoryUpdated', sampleInventory);
     expect(events).toEqual([{ name: 'featureUnlocked', payload: { feature: 'inventory' } }]);
+  });
+
+  test('unlocks features independently as their triggers fire', () => {
+    const { unlocks, events, simulateEvent } = makeUnlocks();
+    simulateEvent('expGained', sampleExp);
+    simulateEvent('inventoryUpdated', sampleInventory);
+    expect(unlocks.getState()).toEqual({ unlocked: ['exp', 'inventory'] });
+    expect(events).toEqual([
+      { name: 'featureUnlocked', payload: { feature: 'exp' } },
+      { name: 'featureUnlocked', payload: { feature: 'inventory' } },
+    ]);
   });
 
   test('does not re-unlock or re-emit on subsequent trigger events', () => {

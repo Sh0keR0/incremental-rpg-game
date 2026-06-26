@@ -172,6 +172,25 @@ describe('createGame', () => {
     expect(onUnlocked).toHaveBeenCalledWith({ feature: 'inventory' });
   });
 
+  test('exp unlocks after the first kill grants experience', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().unlocks.unlocked.includes('exp'));
+    expect(pump.game.getState().unlocks.unlocked).toContain('exp');
+  });
+
+  test('stats unlocks after the first level-up awards a point', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().unlocks.unlocked.includes('stats'));
+    expect(pump.game.getState().player.level).toBeGreaterThanOrEqual(2);
+    expect(pump.game.getState().unlocks.unlocked).toContain('stats');
+  });
+
+  test('stage unlocks once the boss becomes available', () => {
+    const pump = newGame();
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    expect(pump.game.getState().unlocks.unlocked).toContain('stage');
+  });
+
   test('statsChanged event fires on level up', () => {
     const { game, tick } = newGame();
     const onStatsChanged = vi.fn();

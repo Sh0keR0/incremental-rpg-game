@@ -1,6 +1,6 @@
 import type { GameContext, GameEventName, IGameComponent } from '../types.ts';
 
-export type FeatureKey = 'inventory';
+export type FeatureKey = 'inventory' | 'exp' | 'stats' | 'stage';
 
 export interface UnlocksState {
   unlocked: FeatureKey[];
@@ -11,7 +11,16 @@ interface UnlockRule {
   event: GameEventName;
 }
 
-const UNLOCK_RULES: UnlockRule[] = [{ feature: 'inventory', event: 'inventoryUpdated' }];
+// A feature reveals the first time its trigger fact fires, so the player only
+// meets each mechanic once it becomes relevant: exp on the first kill, stats on
+// the first level-up's awarded point, inventory on the first drop, and the stage
+// system once a boss becomes available.
+const UNLOCK_RULES: UnlockRule[] = [
+  { feature: 'exp', event: 'expGained' },
+  { feature: 'stats', event: 'statsChanged' },
+  { feature: 'inventory', event: 'inventoryUpdated' },
+  { feature: 'stage', event: 'bossUnlocked' },
+];
 
 export class Unlocks implements IGameComponent {
   readonly id = 'unlocks';

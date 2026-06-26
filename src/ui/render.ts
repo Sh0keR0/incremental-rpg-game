@@ -11,7 +11,7 @@ import type { InventoryData } from '../game/components/Inventory.ts';
 
 export const TEMPLATE = `
   <div class="game">
-    <section class="stage-panel">
+    <section class="stage-panel foldable" data-feature="stage">
       <div class="stage-selector">
         <button class="stage-arrow stage-prev" type="button" aria-label="Previous stage">‹</button>
         <h2 class="stage-name"></h2>
@@ -28,14 +28,14 @@ export const TEMPLATE = `
     </section>
     <button class="attack-btn" type="button">Attack</button>
     <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
-    <section class="player-panel">
+    <section class="player-panel foldable" data-feature="exp">
       <div class="player-level"></div>
       <div class="bar exp-bar">
         <div class="bar-fill"></div>
         <span class="bar-label"></span>
       </div>
     </section>
-    <section class="stats-panel">
+    <section class="stats-panel foldable" data-feature="stats">
       <h3 class="stats-title">Stats <span class="stats-points"></span></h3>
       <div class="stats-list">
         <div class="stat-row" data-stat="strength">
