@@ -1,12 +1,16 @@
 import { type DroppableItem, type Enemy, instantiateEnemy } from '../content/enemies.ts';
 import { spawnStageEnemy, STAGES } from '../content/stages.ts';
+import { attackCooldownMs, attackDamage } from '../systems/combatStats.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
 import { Player } from './Player.ts';
+import { PlayerStats } from './PlayerStats.ts';
 import { Stages } from './Stages.ts';
 
 export interface CombatState {
   enemy: Enemy;
   isBoss: boolean;
+  attackCooldownRemainingMs: number;
+  attackCooldownMs: number;
 }
 
 export class Combat implements IGameComponent {
@@ -14,19 +18,32 @@ export class Combat implements IGameComponent {
   private gameContext!: GameContext;
   private enemy!: Enemy;
   private currentEnemyIsBoss = false;
+  private attackCooldownRemainingMs = 0;
 
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
     this.enemy = spawnStageEnemy(STAGES[0], gameContext.rng);
-    gameContext.handle('attack', () => {
-      this.damageEnemy(this.gameContext.getGameComponent(Player).getAttack());
-    });
+    gameContext.handle('attack', () => this.attemptAttack());
     // Spawning follows the stage facts: the boss appears when the fight starts,
     // and a normal enemy returns whenever the active stage changes or a boss
     // fight is abandoned.
     gameContext.on('bossStarted', () => this.spawnBoss());
     gameContext.on('bossFailed', () => this.spawnNormalEnemy());
     gameContext.on('stageSelected', () => this.spawnNormalEnemy());
+  }
+
+  onTick(deltaMs: number): void {
+    if (this.attackCooldownRemainingMs > 0) {
+      this.attackCooldownRemainingMs = Math.max(0, this.attackCooldownRemainingMs - deltaMs);
+    }
+  }
+
+  private attemptAttack(): void {
+    if (this.attackCooldownRemainingMs > 0) return;
+    const playerStats = this.gameContext.getGameComponent(PlayerStats);
+    const baseAttack = this.gameContext.getGameComponent(Player).getAttack();
+    this.attackCooldownRemainingMs = attackCooldownMs(playerStats.getStat('agility'));
+    this.damageEnemy(attackDamage(baseAttack, playerStats.getStat('strength')));
   }
 
   damageEnemy(amount: number): void {
@@ -77,7 +94,13 @@ export class Combat implements IGameComponent {
   }
 
   getState(): CombatState {
-    return { enemy: { ...this.enemy }, isBoss: this.currentEnemyIsBoss };
+    const agility = this.gameContext.getGameComponent(PlayerStats).getStat('agility');
+    return {
+      enemy: { ...this.enemy },
+      isBoss: this.currentEnemyIsBoss,
+      attackCooldownRemainingMs: this.attackCooldownRemainingMs,
+      attackCooldownMs: attackCooldownMs(agility),
+    };
   }
 
   save(): unknown {
