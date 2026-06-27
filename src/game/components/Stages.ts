@@ -89,6 +89,9 @@ export class Stages implements IGameComponent {
 
   private completeBossFight(): void {
     this.mode = 'normal';
+    // Announce the kill before the early return so even the final stage's boss
+    // counts (this is what unlocks auto-attack on the very first boss).
+    this.gameContext.emit('bossDefeated', { stageId: this.currentStageId });
     const nextStage = getNextStage(this.currentStageId);
     if (nextStage === undefined) return; // final stage cleared — stay put
 

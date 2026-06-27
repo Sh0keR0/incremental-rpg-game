@@ -28,6 +28,7 @@ export interface Game {
   on<K extends GameEventName>(name: K, listener: (payload: GameEventMap[K]) => void): () => void;
   actions: {
     attack(): void;
+    toggleAutoAttack(): void;
     allocateStat(statName: StatName): void;
     fightBoss(): void;
     selectStage(stageId: string): void;
@@ -68,6 +69,9 @@ export function createGame(options: GameOptions = {}): Game {
     actions: {
       attack() {
         core.enqueueCommand('attack', {});
+      },
+      toggleAutoAttack() {
+        core.enqueueCommand('toggleAutoAttack', {});
       },
       allocateStat(statName: StatName) {
         core.enqueueCommand('allocateStat', { statName });

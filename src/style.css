@@ -272,9 +272,37 @@ body {
   cursor: progress;
 }
 
-.attack-label {
+.attack-label,
+.auto-attack-label {
   position: relative;
   z-index: 1;
+}
+
+.auto-attack-btn {
+  position: relative;
+  overflow: hidden;
+  padding: 0.7rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.05s ease, filter 0.15s ease, border-color 0.15s ease;
+}
+
+.auto-attack-btn:hover {
+  filter: brightness(1.1);
+}
+
+.auto-attack-btn:active {
+  transform: scale(0.96);
+}
+
+.auto-attack-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 /* Shrinks from full to empty as the cooldown ticks down, so the button visibly

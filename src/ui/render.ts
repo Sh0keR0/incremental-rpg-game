@@ -28,6 +28,9 @@ export const TEMPLATE = `
     </section>
     <button class="attack-btn" type="button">
       <span class="attack-label">Attack</span>
+    </button>
+    <button class="auto-attack-btn foldable" data-feature="autoAttack" type="button" aria-pressed="false">
+      <span class="auto-attack-label">Auto-Attack: Off</span>
       <span class="attack-cooldown"></span>
     </button>
     <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
@@ -132,14 +135,19 @@ export function render(root: HTMLElement, state: GameSnapshot): void {
   root.querySelector('.enemy-panel')?.classList.toggle('boss', state.combat.isBoss);
   setBar(root, '.hp-bar', enemy.hp, enemy.maxHp, `${enemy.hp} / ${enemy.maxHp} HP`);
 
-  const attackButton = root.querySelector<HTMLButtonElement>('.attack-btn');
-  if (attackButton) {
-    const { attackCooldownRemainingMs, attackCooldownMs } = state.combat;
-    attackButton.disabled = attackCooldownRemainingMs > 0;
-    const cooldown = attackButton.querySelector<HTMLElement>('.attack-cooldown');
+  const autoAttackButton = root.querySelector<HTMLButtonElement>('.auto-attack-btn');
+  if (autoAttackButton) {
+    const { autoAttackEnabled, autoAttackCooldownRemainingMs, autoAttackCooldownMs } = state.combat;
+    autoAttackButton.classList.toggle('active', autoAttackEnabled);
+    autoAttackButton.setAttribute('aria-pressed', String(autoAttackEnabled));
+    const label = autoAttackButton.querySelector<HTMLElement>('.auto-attack-label');
+    if (label) label.textContent = `Auto-Attack: ${autoAttackEnabled ? 'On' : 'Off'}`;
+    const cooldown = autoAttackButton.querySelector<HTMLElement>('.attack-cooldown');
     if (cooldown) {
       const remainingPercent =
-        attackCooldownMs > 0 ? (attackCooldownRemainingMs / attackCooldownMs) * 100 : 0;
+        autoAttackEnabled && autoAttackCooldownMs > 0
+          ? (autoAttackCooldownRemainingMs / autoAttackCooldownMs) * 100
+          : 0;
       cooldown.style.width = `${Math.max(0, Math.min(100, remainingPercent))}%`;
     }
   }
