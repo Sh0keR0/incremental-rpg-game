@@ -1,6 +1,8 @@
 import { applyExp, expForLevel } from '../systems/progression.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
 
+export const DEFAULT_PLAYER_ATTACK = 5;
+
 export interface PlayerState {
   level: number;
   exp: number;
@@ -11,7 +13,12 @@ export interface PlayerState {
 export class Player implements IGameComponent {
   readonly id = 'player';
   private gameContext!: GameContext;
-  private state: PlayerState = { level: 1, exp: 0, expToNext: expForLevel(1), attack: 5 };
+  private state: PlayerState = {
+    level: 1,
+    exp: 0,
+    expToNext: expForLevel(1),
+    attack: DEFAULT_PLAYER_ATTACK,
+  };
 
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;

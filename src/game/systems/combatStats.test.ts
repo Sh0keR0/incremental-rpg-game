@@ -1,25 +1,52 @@
 import { describe, expect, test } from 'vitest';
-import { attackCooldownMs, attackDamage, bossTimeLimitMs } from './combatStats.ts';
+import {
+  AGILITY_COOLDOWN_FACTOR,
+  attackCooldownMs,
+  attackDamage,
+  BASE_ATTACK_COOLDOWN_MS,
+  bossTimeLimitMs,
+  ENDURANCE_BOSS_TIME_PER_POINT_MS,
+  STRENGTH_DAMAGE_PER_POINT,
+} from './combatStats.ts';
+
+// These tests pin the *shape* of each formula (identity, linearity, monotonicity)
+// by deriving expectations from the balance constants rather than hard-coding the
+// products. Re-tuning a constant for balance flows through and keeps tests green;
+// only a genuine change to a formula's behavior should fail them.
 
 describe('attackDamage', () => {
   test('returns the base attack untouched at zero strength', () => {
     expect(attackDamage(5, 0)).toBe(5);
+    expect(attackDamage(42, 0)).toBe(42);
   });
 
-  test('adds a flat bonus per strength point', () => {
-    // 5 base + 3 strength * 2/point = 11
-    expect(attackDamage(5, 3)).toBe(11);
+  test('adds STRENGTH_DAMAGE_PER_POINT for each strength point', () => {
+    const baseAttack = 5;
+    const strength = 3;
+    expect(attackDamage(baseAttack, strength)).toBe(
+      baseAttack + strength * STRENGTH_DAMAGE_PER_POINT,
+    );
+  });
+
+  test('each strength point adds a constant increment', () => {
+    const baseAttack = 5;
+    const increment = attackDamage(baseAttack, 4) - attackDamage(baseAttack, 3);
+    expect(increment).toBe(STRENGTH_DAMAGE_PER_POINT);
+    // Same increment regardless of where on the curve we measure.
+    expect(attackDamage(baseAttack, 11) - attackDamage(baseAttack, 10)).toBe(increment);
   });
 });
 
 describe('attackCooldownMs', () => {
-  test('is one second at zero agility', () => {
-    expect(attackCooldownMs(0)).toBe(1000);
+  test('is the base cooldown at zero agility', () => {
+    expect(attackCooldownMs(0)).toBe(BASE_ATTACK_COOLDOWN_MS);
   });
 
-  test('halves the cooldown at ten agility', () => {
-    // 1000 / (1 + 10 * 0.1) = 1000 / 2 = 500
-    expect(attackCooldownMs(10)).toBe(500);
+  test('halves the cooldown once agility cancels the base factor', () => {
+    // At agility = 1 / AGILITY_COOLDOWN_FACTOR the denominator is 2, so the
+    // cooldown is exactly half the base — independent of the constants' values.
+    const agilityForHalfCooldown = 1 / AGILITY_COOLDOWN_FACTOR;
+    expect(attackCooldownMs(agilityForHalfCooldown)).toBe(BASE_ATTACK_COOLDOWN_MS / 2);
   });
 
   test('keeps shrinking without ever reaching zero', () => {
@@ -33,7 +60,11 @@ describe('bossTimeLimitMs', () => {
     expect(bossTimeLimitMs(30000, 0)).toBe(30000);
   });
 
-  test('adds one second of boss time per endurance point', () => {
-    expect(bossTimeLimitMs(30000, 5)).toBe(35000);
+  test('adds ENDURANCE_BOSS_TIME_PER_POINT_MS per endurance point', () => {
+    const baseLimit = 30000;
+    const endurance = 5;
+    expect(bossTimeLimitMs(baseLimit, endurance)).toBe(
+      baseLimit + endurance * ENDURANCE_BOSS_TIME_PER_POINT_MS,
+    );
   });
 });
