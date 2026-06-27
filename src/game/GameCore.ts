@@ -19,6 +19,10 @@ export interface GameCoreOptions {
   // Optional dev aid: log (never throw) when an event cascade nests this deep.
   // 0 disables it. See EventEmitter.
   cascadeWarnDepth?: number;
+  // Optional test/dev seam: observe every event at emit time, before it is
+  // dispatched to listeners. Fires in true cascade order (parent before
+  // children) so a harness can record an ordered log. Never used in production.
+  observeEvent?: <K extends GameEventName>(name: K, payload: GameEventMap[K]) => void;
 }
 
 export class GameCore {
@@ -42,9 +46,13 @@ export class GameCore {
     this.requestFrame = options.requestFrame ?? ((callback) => requestAnimationFrame(callback));
     this.cancelFrame = options.cancelFrame ?? ((handle) => cancelAnimationFrame(handle));
 
+    const observeEvent = options.observeEvent;
     this.gameContext = {
       rng,
-      emit: (name, payload) => this.emitter.emit(name, payload),
+      emit: (name, payload) => {
+        observeEvent?.(name, payload);
+        this.emitter.emit(name, payload);
+      },
       on: (name, listener) => this.emitter.on(name, listener),
       enqueue: (name, payload) => this.commandQueue.enqueue(name, payload),
       handle: (name, handler) => this.commandQueue.handle(name, handler),

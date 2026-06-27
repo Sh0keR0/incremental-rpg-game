@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { STAGES } from '../content/stages.ts';
-import { makeTestContext, type TestContext } from '../testing/makeTestContext.ts';
-import type { ComponentClass, IGameComponent } from '../types.ts';
+import { makeWorld, type World } from '../testing/makeWorld.ts';
 import { PlayerStats } from './PlayerStats.ts';
 import { Stages } from './Stages.ts';
 
@@ -12,32 +11,30 @@ const SECOND = STAGES[1];
 const NORMAL_DEFEAT = { name: 'grunt', expReward: 0, drops: [], isBoss: false };
 const BOSS_DEFEAT = { ...NORMAL_DEFEAT, isBoss: true };
 
-// Stages queries PlayerStats for endurance when starting a boss fight; stub it
-// with a fixed endurance value (0 by default keeps the base boss timer).
+// Stages only depends on the real PlayerStats (it queries endurance to size the
+// boss timer); narrow the world to those two so the event log stays free of
+// unrelated cross-talk. Endurance is seeded, not stubbed.
 function setup(endurance = 0) {
-  const getGameComponent = (<T extends IGameComponent>(componentClass: ComponentClass<T>): T => {
-    if ((componentClass as unknown) === PlayerStats) {
-      return { getStat: () => endurance } as unknown as T;
-    }
-    throw new Error(`unexpected getGameComponent: ${componentClass.name}`);
-  }) as <T extends IGameComponent>(componentClass: ComponentClass<T>) => T;
-  const context = makeTestContext({ getGameComponent });
-  const stages = new Stages();
-  stages.initialize(context.gameContext);
-  return { stages, ...context };
+  const world = makeWorld({
+    components: [PlayerStats, Stages],
+    seed: { stats: { endurance } },
+  });
+  return { world, stages: world.getComponent(Stages) };
 }
 
-// Drive the real on('enemyDefeated') wiring to walk a stage to its boss unlock.
-function unlockBoss(context: TestContext, count = FIRST.killsToUnlockBoss): void {
-  for (let kill = 0; kill < count; kill++) context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+// Inject the enemyDefeated fact to walk a stage toward its boss unlock. Driving
+// the real producer (Combat) would mean killing enemies by HP — irrelevant to
+// what Stages does with the fact — so emit it straight into the world instead.
+function unlockBoss(world: World, count = FIRST.killsToUnlockBoss): void {
+  for (let kill = 0; kill < count; kill++) world.emit('enemyDefeated', NORMAL_DEFEAT);
 }
 
 // Unlock + start + win the current stage's boss through the command/event seams.
-function clearCurrentBoss(context: TestContext, stages: Stages): void {
+function clearCurrentBoss(world: World, stages: Stages): void {
   const stage = stages.getCurrentStage();
-  unlockBoss(context, stage.killsToUnlockBoss);
-  context.runCommand('fightBoss', {});
-  context.simulateEvent('enemyDefeated', BOSS_DEFEAT);
+  unlockBoss(world, stage.killsToUnlockBoss);
+  world.runCommand('fightBoss', {});
+  world.emit('enemyDefeated', BOSS_DEFEAT);
 }
 
 describe('Stages', () => {
@@ -49,103 +46,98 @@ describe('Stages', () => {
   });
 
   test('reacting to normal kills unlocks the boss at the threshold', () => {
-    const context = setup();
-    const { stages } = context;
+    const { world, stages } = setup();
     for (let kill = 0; kill < FIRST.killsToUnlockBoss - 1; kill++) {
-      context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+      world.emit('enemyDefeated', NORMAL_DEFEAT);
       expect(stages.canFightBoss()).toBe(false);
     }
-    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+    world.emit('enemyDefeated', NORMAL_DEFEAT);
     expect(stages.canFightBoss()).toBe(true);
-    expect(context.events).toContainEqual({
+    expect(world.events).toContainEqual({
       name: 'bossUnlocked',
       payload: { stageId: FIRST.id },
     });
   });
 
   test('boss unlock is sticky and kill count stops at the threshold', () => {
-    const context = setup();
-    unlockBoss(context);
-    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
-    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
-    expect(context.stages.getState().kills).toBe(FIRST.killsToUnlockBoss);
-    expect(context.stages.getState().bossUnlocked).toBe(true);
+    const { world, stages } = setup();
+    unlockBoss(world);
+    world.emit('enemyDefeated', NORMAL_DEFEAT);
+    world.emit('enemyDefeated', NORMAL_DEFEAT);
+    expect(stages.getState().kills).toBe(FIRST.killsToUnlockBoss);
+    expect(stages.getState().bossUnlocked).toBe(true);
   });
 
   test('the fightBoss command enters boss mode with a full timer', () => {
-    const context = setup();
-    unlockBoss(context);
-    context.runCommand('fightBoss', {});
-    const state = context.stages.getState();
+    const { world, stages } = setup();
+    unlockBoss(world);
+    world.runCommand('fightBoss', {});
+    const state = stages.getState();
     expect(state.mode).toBe('boss');
     expect(state.bossTimeRemainingMs).toBe(FIRST.bossTimeLimitMs);
-    expect(context.events).toContainEqual({
+    expect(world.events).toContainEqual({
       name: 'bossStarted',
       payload: { stageId: FIRST.id },
     });
   });
 
   test('endurance extends the starting boss timer beyond the stage base', () => {
-    const context = setup(5);
-    unlockBoss(context);
-    context.runCommand('fightBoss', {});
+    const { world, stages } = setup(5);
+    unlockBoss(world);
+    world.runCommand('fightBoss', {});
     // base limit + 5 endurance * 1000ms/point
-    expect(context.stages.getState().bossTimeRemainingMs).toBe(FIRST.bossTimeLimitMs + 5000);
+    expect(stages.getState().bossTimeRemainingMs).toBe(FIRST.bossTimeLimitMs + 5000);
   });
 
   test('the fightBoss command does nothing while the boss is still locked', () => {
-    const context = setup();
-    context.runCommand('fightBoss', {});
-    expect(context.stages.getState().mode).toBe('normal');
-    expect(context.events.find((event) => event.name === 'bossStarted')).toBeUndefined();
+    const { world, stages } = setup();
+    world.runCommand('fightBoss', {});
+    expect(stages.getState().mode).toBe('normal');
+    expect(world.events.find((event) => event.name === 'bossStarted')).toBeUndefined();
   });
 
   test('onTick counts the boss timer down and fails (emitting bossFailed) when it expires', () => {
-    const context = setup();
-    const { stages } = context;
-    unlockBoss(context);
-    context.runCommand('fightBoss', {});
-    stages.onTick(FIRST.bossTimeLimitMs - 1000);
+    const { world, stages } = setup();
+    unlockBoss(world);
+    world.runCommand('fightBoss', {});
+    world.tick(FIRST.bossTimeLimitMs - 1000);
     expect(stages.getState().mode).toBe('boss');
-    stages.onTick(2000);
+    world.tick(2000);
     expect(stages.getState().mode).toBe('normal');
-    expect(context.events).toContainEqual({
+    expect(world.events).toContainEqual({
       name: 'bossFailed',
       payload: { stageId: FIRST.id },
     });
   });
 
   test('failing the boss keeps it unlocked for a retry', () => {
-    const context = setup();
-    const { stages } = context;
-    unlockBoss(context);
-    context.runCommand('fightBoss', {});
-    stages.onTick(FIRST.bossTimeLimitMs);
+    const { world, stages } = setup();
+    unlockBoss(world);
+    world.runCommand('fightBoss', {});
+    world.tick(FIRST.bossTimeLimitMs);
     expect(stages.canFightBoss()).toBe(true);
   });
 
   test('defeating the boss unlocks and switches to the next stage without emitting stageSelected', () => {
-    const context = setup();
-    const { stages } = context;
-    clearCurrentBoss(context, stages);
+    const { world, stages } = setup();
+    clearCurrentBoss(world, stages);
     const state = stages.getState();
     expect(state.currentStageId).toBe(SECOND.id);
     expect(state.mode).toBe('normal');
-    expect(context.events).toContainEqual({
+    expect(world.events).toContainEqual({
       name: 'stageUnlocked',
       payload: { stageId: SECOND.id },
     });
     // Combat respawns from the advanced stage itself, so no stageSelected here.
-    expect(context.events.find((event) => event.name === 'stageSelected')).toBeUndefined();
+    expect(world.events.find((event) => event.name === 'stageSelected')).toBeUndefined();
   });
 
   test('completing the final stage boss stays on the final stage', () => {
-    const context = setup();
-    const { stages } = context;
+    const { world, stages } = setup();
     const last = STAGES[STAGES.length - 1];
-    for (let index = 0; index < STAGES.length - 1; index++) clearCurrentBoss(context, stages);
+    for (let index = 0; index < STAGES.length - 1; index++) clearCurrentBoss(world, stages);
     expect(stages.getState().currentStageId).toBe(last.id);
-    clearCurrentBoss(context, stages);
+    clearCurrentBoss(world, stages);
     expect(stages.getState().currentStageId).toBe(last.id);
   });
 
@@ -156,32 +148,29 @@ describe('Stages', () => {
   });
 
   test('the selectStage command switches to an unlocked stage and emits stageSelected', () => {
-    const context = setup();
-    const { stages } = context;
-    clearCurrentBoss(context, stages); // unlocks SECOND, now on SECOND
-    context.runCommand('selectStage', { stageId: FIRST.id });
+    const { world, stages } = setup();
+    clearCurrentBoss(world, stages); // unlocks SECOND, now on SECOND
+    world.runCommand('selectStage', { stageId: FIRST.id });
     expect(stages.getState().currentStageId).toBe(FIRST.id);
-    expect(context.events).toContainEqual({
+    expect(world.events).toContainEqual({
       name: 'stageSelected',
       payload: { stageId: FIRST.id },
     });
   });
 
   test('selectStage rejects switching during a boss fight', () => {
-    const context = setup();
-    const { stages } = context;
-    clearCurrentBoss(context, stages); // on SECOND, FIRST behind it
-    unlockBoss(context, SECOND.killsToUnlockBoss);
-    context.runCommand('fightBoss', {});
+    const { world, stages } = setup();
+    clearCurrentBoss(world, stages); // on SECOND, FIRST behind it
+    unlockBoss(world, SECOND.killsToUnlockBoss);
+    world.runCommand('fightBoss', {});
     expect(stages.selectStage(FIRST.id)).toBe(false);
   });
 
   test('selectStage moves between unlocked stages and preserves their progress', () => {
-    const context = setup();
-    const { stages } = context;
-    clearCurrentBoss(context, stages); // on SECOND now
-    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
-    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
+    const { world, stages } = setup();
+    clearCurrentBoss(world, stages); // on SECOND now
+    world.emit('enemyDefeated', NORMAL_DEFEAT);
+    world.emit('enemyDefeated', NORMAL_DEFEAT);
     expect(stages.selectStage(FIRST.id)).toBe(true);
     expect(stages.getState().bossUnlocked).toBe(true); // FIRST stayed unlocked
     expect(stages.selectStage(SECOND.id)).toBe(true);
@@ -189,20 +178,19 @@ describe('Stages', () => {
   });
 
   test('reports unlocked stages so the UI can resolve navigation', () => {
-    const context = setup();
-    const { stages } = context;
+    const { world, stages } = setup();
     expect(stages.getState().unlockedStageIds).toEqual([FIRST.id]);
-    clearCurrentBoss(context, stages); // unlocks SECOND, moves to it
+    clearCurrentBoss(world, stages); // unlocks SECOND, moves to it
     expect(stages.getState().unlockedStageIds).toEqual([FIRST.id, SECOND.id]);
   });
 });
 
 describe('Stages save/load robustness', () => {
   test('round-trips progress through save/load', () => {
-    const context = setup();
-    clearCurrentBoss(context, context.stages);
-    context.simulateEvent('enemyDefeated', NORMAL_DEFEAT);
-    const saved = context.stages.save();
+    const { world, stages } = setup();
+    clearCurrentBoss(world, stages);
+    world.emit('enemyDefeated', NORMAL_DEFEAT);
+    const saved = stages.save();
 
     const fresh = setup().stages;
     fresh.load(saved);
