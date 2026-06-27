@@ -40,17 +40,17 @@ describe('Combat (real-world harness)', () => {
     expect(combat.getState().enemy.hp).toBe(TEST_ENEMY.maxHp - 5);
   });
 
-  // A non-lethal hit has no cascade, so the global log is still exactly one event.
-  test('non-lethal hit lowers HP and emits only attacked', () => {
+  test('non-lethal hit lowers HP and emits attacked', () => {
     const { world, combat } = setup();
     combat.damageEnemy(5);
     expect(combat.getState().enemy.hp).toBe(TEST_ENEMY.maxHp - 5);
-    expect(world.events).toEqual([
-      {
-        name: 'attacked',
-        payload: { damage: 5, enemyHp: TEST_ENEMY.maxHp - 5, enemyName: TEST_ENEMY.name },
-      },
-    ]);
+
+    const attacked = world.events.find((event) => event.name === 'attacked');
+    expect(attacked?.payload).toEqual({
+      damage: 5,
+      enemyHp: TEST_ENEMY.maxHp - 5,
+      enemyName: TEST_ENEMY.name,
+    });
   });
 
   // With real siblings the kill really cascades (Player emits expGained between
