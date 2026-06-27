@@ -18,6 +18,7 @@ export interface GameEventMap {
   bossUnlocked: { stageId: string };
   bossStarted: { stageId: string };
   bossFailed: { stageId: string };
+  bossDefeated: { stageId: string };
   stageUnlocked: { stageId: string };
   stageSelected: { stageId: string };
 }
@@ -26,6 +27,7 @@ export type GameEventName = keyof GameEventMap;
 
 export interface GameCommandMap {
   attack: Record<string, never>;
+  toggleAutoAttack: Record<string, never>;
   allocateStat: { statName: StatName };
   fightBoss: Record<string, never>;
   selectStage: { stageId: string };

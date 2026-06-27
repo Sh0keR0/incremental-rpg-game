@@ -44,6 +44,13 @@ describe('Unlocks', () => {
     expect(unlocks.isUnlocked('stage')).toBe(true);
   });
 
+  test('unlocks auto-attack on the first bossDefeated event', () => {
+    const { unlocks, simulateEvent } = makeUnlocks();
+    expect(unlocks.isUnlocked('autoAttack')).toBe(false);
+    simulateEvent('bossDefeated', { stageId: 'stage-1' });
+    expect(unlocks.isUnlocked('autoAttack')).toBe(true);
+  });
+
   test('emits featureUnlocked when a feature unlocks', () => {
     const { events, simulateEvent } = makeUnlocks();
     simulateEvent('inventoryUpdated', sampleInventory);

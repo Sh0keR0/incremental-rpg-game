@@ -79,30 +79,19 @@ describe('Combat', () => {
     expect(combat.getState().enemy.hp).toBe(TEST_ENEMY.maxHp - 11);
   });
 
-  test('a second attack within the cooldown window does nothing', () => {
+  test('the manual attack has no cooldown — consecutive attacks both land', () => {
     const { world, combat } = setup();
     world.runCommand('attack', {});
     const hpAfterFirst = combat.getState().enemy.hp;
-    world.runCommand('attack', {});
-    expect(combat.getState().enemy.hp).toBe(hpAfterFirst);
-  });
-
-  test('the attack lands again once the cooldown ticks down to zero', () => {
-    const { world, combat } = setup();
-    world.runCommand('attack', {});
-    const hpAfterFirst = combat.getState().enemy.hp;
-    world.tick(combat.getState().attackCooldownMs);
     world.runCommand('attack', {});
     expect(combat.getState().enemy.hp).toBe(hpAfterFirst - 5);
   });
 
-  test('higher agility yields a shorter attack cooldown', () => {
+  test('higher agility yields a shorter auto-attack cooldown', () => {
     const slow = setup();
     const fast = setup({ stats: { agility: 10 } });
-    slow.world.runCommand('attack', {});
-    fast.world.runCommand('attack', {});
-    expect(fast.combat.getState().attackCooldownRemainingMs).toBeLessThan(
-      slow.combat.getState().attackCooldownRemainingMs,
+    expect(fast.combat.getState().autoAttackCooldownMs).toBeLessThan(
+      slow.combat.getState().autoAttackCooldownMs,
     );
   });
 
@@ -126,13 +115,54 @@ describe('Combat', () => {
     expect(combat.getState().isBoss).toBe(false);
   });
 
-  test('save/load round-trips the active enemy and boss flag', () => {
+  test('auto-attack is off by default and does not fire on tick', () => {
     const { combat } = setup();
+    expect(combat.getState().autoAttackEnabled).toBe(false);
+    const startHp = combat.getState().enemy.hp;
+    combat.onTick(10_000);
+    expect(combat.getState().enemy.hp).toBe(startHp);
+  });
+
+  test('toggleAutoAttack enables auto-attacking and onTick lands a hit', () => {
+    const { world, combat } = setup();
+    world.runCommand('toggleAutoAttack', {});
+    expect(combat.getState().autoAttackEnabled).toBe(true);
+
+    const startHp = combat.getState().enemy.hp;
+    combat.onTick(16); // enabling starts ready, so the first hit lands at once
+    expect(combat.getState().enemy.hp).toBe(startHp - 5);
+  });
+
+  test('an enabled auto-attack waits a full cooldown between hits', () => {
+    const { world, combat } = setup();
+    world.runCommand('toggleAutoAttack', {});
+    combat.onTick(16); // first hit; cooldown now recharging
+    const hpAfterFirst = combat.getState().enemy.hp;
+    combat.onTick(1); // not enough time to recharge
+    expect(combat.getState().enemy.hp).toBe(hpAfterFirst);
+    combat.onTick(combat.getState().autoAttackCooldownMs);
+    expect(combat.getState().enemy.hp).toBe(hpAfterFirst - 5);
+  });
+
+  test('toggleAutoAttack twice turns it back off', () => {
+    const { world, combat } = setup();
+    world.runCommand('toggleAutoAttack', {});
+    world.runCommand('toggleAutoAttack', {});
+    expect(combat.getState().autoAttackEnabled).toBe(false);
+    const startHp = combat.getState().enemy.hp;
+    combat.onTick(10_000);
+    expect(combat.getState().enemy.hp).toBe(startHp);
+  });
+
+  test('save/load round-trips the enemy, boss flag, and auto-attack toggle', () => {
+    const { world, combat } = setup();
     combat.damageEnemy(5);
+    world.runCommand('toggleAutoAttack', {});
     const saved = combat.save();
 
     const fresh = setup().combat;
     fresh.load(saved);
     expect(fresh.getState()).toEqual(combat.getState());
+    expect(fresh.getState().autoAttackEnabled).toBe(true);
   });
 });

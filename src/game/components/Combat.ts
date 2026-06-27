@@ -9,8 +9,9 @@ import { Stages } from './Stages.ts';
 export interface CombatState {
   enemy: Enemy;
   isBoss: boolean;
-  attackCooldownRemainingMs: number;
-  attackCooldownMs: number;
+  autoAttackEnabled: boolean;
+  autoAttackCooldownRemainingMs: number;
+  autoAttackCooldownMs: number;
 }
 
 export class Combat implements IGameComponent {
@@ -18,12 +19,14 @@ export class Combat implements IGameComponent {
   private gameContext!: GameContext;
   private enemy!: Enemy;
   private currentEnemyIsBoss = false;
-  private attackCooldownRemainingMs = 0;
+  private autoAttackEnabled = false;
+  private autoAttackCooldownRemainingMs = 0;
 
   initialize(gameContext: GameContext): void {
     this.gameContext = gameContext;
     this.enemy = spawnStageEnemy(STAGES[0], gameContext.rng);
-    gameContext.handle('attack', () => this.attemptAttack());
+    gameContext.handle('attack', () => this.attack());
+    gameContext.handle('toggleAutoAttack', () => this.toggleAutoAttack());
     // Spawning follows the stage facts: the boss appears when the fight starts,
     // and a normal enemy returns whenever the active stage changes or a boss
     // fight is abandoned.
@@ -32,18 +35,32 @@ export class Combat implements IGameComponent {
     gameContext.on('stageSelected', () => this.spawnNormalEnemy());
   }
 
+  // The cooldown governs only the auto-attack: it ticks down while enabled and
+  // fires a hit each time it reaches zero. The manual attack has no cooldown —
+  // the player can attack as fast as they can press.
   onTick(deltaMs: number): void {
-    if (this.attackCooldownRemainingMs > 0) {
-      this.attackCooldownRemainingMs = Math.max(0, this.attackCooldownRemainingMs - deltaMs);
-    }
+    if (!this.autoAttackEnabled) return;
+    this.autoAttackCooldownRemainingMs = Math.max(0, this.autoAttackCooldownRemainingMs - deltaMs);
+    if (this.autoAttackCooldownRemainingMs > 0) return;
+    this.autoAttackCooldownRemainingMs = this.currentCooldownMs();
+    this.attack();
   }
 
-  private attemptAttack(): void {
-    if (this.attackCooldownRemainingMs > 0) return;
-    const playerStats = this.gameContext.getGameComponent(PlayerStats);
+  private toggleAutoAttack(): void {
+    this.autoAttackEnabled = !this.autoAttackEnabled;
+    // Enabling starts ready so the first auto-hit lands on the next tick.
+    if (this.autoAttackEnabled) this.autoAttackCooldownRemainingMs = 0;
+  }
+
+  private attack(): void {
     const baseAttack = this.gameContext.getGameComponent(Player).getAttack();
-    this.attackCooldownRemainingMs = attackCooldownMs(playerStats.getStat('agility'));
-    this.damageEnemy(attackDamage(baseAttack, playerStats.getStat('strength')));
+    const strength = this.gameContext.getGameComponent(PlayerStats).getStat('strength');
+    this.damageEnemy(attackDamage(baseAttack, strength));
+  }
+
+  private currentCooldownMs(): number {
+    const agility = this.gameContext.getGameComponent(PlayerStats).getStat('agility');
+    return attackCooldownMs(agility);
   }
 
   damageEnemy(amount: number): void {
@@ -94,22 +111,27 @@ export class Combat implements IGameComponent {
   }
 
   getState(): CombatState {
-    const agility = this.gameContext.getGameComponent(PlayerStats).getStat('agility');
     return {
       enemy: { ...this.enemy },
       isBoss: this.currentEnemyIsBoss,
-      attackCooldownRemainingMs: this.attackCooldownRemainingMs,
-      attackCooldownMs: attackCooldownMs(agility),
+      autoAttackEnabled: this.autoAttackEnabled,
+      autoAttackCooldownRemainingMs: this.autoAttackCooldownRemainingMs,
+      autoAttackCooldownMs: this.currentCooldownMs(),
     };
   }
 
   save(): unknown {
-    return { enemy: this.enemy, isBoss: this.currentEnemyIsBoss };
+    return {
+      enemy: this.enemy,
+      isBoss: this.currentEnemyIsBoss,
+      autoAttackEnabled: this.autoAttackEnabled,
+    };
   }
 
   load(data: unknown): void {
-    const saved = data as { enemy: Enemy; isBoss?: boolean };
+    const saved = data as { enemy: Enemy; isBoss?: boolean; autoAttackEnabled?: boolean };
     this.enemy = saved.enemy;
     this.currentEnemyIsBoss = saved.isBoss ?? false;
+    this.autoAttackEnabled = saved.autoAttackEnabled ?? false;
   }
 }

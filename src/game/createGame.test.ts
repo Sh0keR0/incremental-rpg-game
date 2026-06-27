@@ -32,9 +32,9 @@ function newGame() {
 type GamePump = { game: Game; tick: (deltaMs?: number) => void };
 
 // Each attack enqueues a command, so a tick must follow it to drain + apply.
-// Attacks now sit behind a cooldown (agility shortens it), so we tick a full
-// cooldown per attack to land every one, and bank any earned stat points into
-// strength so bosses stay beatable within their timer at base agility.
+// The manual attack has no cooldown, so a single tick per attack lands every
+// one; we bank any earned stat points into strength so bosses stay beatable
+// within their timer.
 function attackUntil(pump: GamePump, done: () => boolean, limit = 5000): void {
   let safety = 0;
   while (!done() && safety++ < limit) {
@@ -43,7 +43,7 @@ function attackUntil(pump: GamePump, done: () => boolean, limit = 5000): void {
       pump.game.actions.allocateStat('strength');
     }
     pump.game.actions.attack();
-    pump.tick(pump.game.getState().combat.attackCooldownMs);
+    pump.tick();
   }
   if (safety >= limit) throw new Error('attackUntil exceeded its safety limit');
 }
@@ -91,7 +91,7 @@ describe('createGame', () => {
 
     for (let hit = 0; hit < hitsToKill; hit++) {
       game.actions.attack();
-      tick(game.getState().combat.attackCooldownMs);
+      tick();
     }
 
     expect(onDefeated).toHaveBeenCalledWith({
@@ -111,7 +111,7 @@ describe('createGame', () => {
 
     for (let hit = 0; hit < hitsToKill; hit++) {
       game.actions.attack();
-      tick(game.getState().combat.attackCooldownMs);
+      tick();
     }
 
     // Inventory reacts to enemyDefeated; rng: () => 0 rolls every drop.
@@ -312,6 +312,34 @@ describe('createGame stage system', () => {
     expect(pump.game.getState().stages.currentStageId).toBe(SECOND.id);
     expect(pump.game.getState().combat.isBoss).toBe(false); // back to normal enemies
     expect(onStageUnlocked).toHaveBeenCalledWith({ stageId: SECOND.id });
+  });
+
+  test('defeating the first boss unlocks auto-attack', () => {
+    const pump = newGame();
+    const onBossDefeated = vi.fn();
+    pump.game.on('bossDefeated', onBossDefeated);
+
+    expect(pump.game.getState().unlocks.unlocked).not.toContain('autoAttack');
+
+    attackUntil(pump, () => pump.game.getState().stages.bossUnlocked);
+    pump.game.actions.fightBoss();
+    pump.tick();
+    attackUntil(pump, () => pump.game.getState().stages.currentStageId !== FIRST.id);
+
+    expect(onBossDefeated).toHaveBeenCalledWith({ stageId: FIRST.id });
+    expect(pump.game.getState().unlocks.unlocked).toContain('autoAttack');
+  });
+
+  test('enabled auto-attack lands hits on its cooldown without manual input', () => {
+    const pump = newGame();
+    pump.game.actions.toggleAutoAttack();
+    pump.tick();
+    expect(pump.game.getState().combat.autoAttackEnabled).toBe(true);
+
+    const cooldownMs = pump.game.getState().combat.autoAttackCooldownMs;
+    const startHp = pump.game.getState().combat.enemy.hp;
+    pump.tick(cooldownMs); // a full cooldown elapses, so one auto-hit lands
+    expect(pump.game.getState().combat.enemy.hp).toBeLessThan(startHp);
   });
 
   test('defeating the boss spawns exactly one replacement enemy (no double spawn)', () => {

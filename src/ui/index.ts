@@ -20,6 +20,9 @@ export function mountUI(game: Game, root: HTMLElement): void {
   root.querySelector<HTMLButtonElement>('.attack-btn')?.addEventListener('click', () => {
     game.actions.attack();
   });
+  root.querySelector<HTMLButtonElement>('.auto-attack-btn')?.addEventListener('click', () => {
+    game.actions.toggleAutoAttack();
+  });
   root.querySelector<HTMLButtonElement>('.reset-btn')?.addEventListener('click', () => {
     if (!confirm('Reset all progress and start a new game?')) return;
     game.clearSave();

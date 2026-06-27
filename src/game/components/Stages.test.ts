@@ -132,6 +132,15 @@ describe('Stages', () => {
     expect(world.events.find((event) => event.name === 'stageSelected')).toBeUndefined();
   });
 
+  test('defeating a boss emits bossDefeated for the cleared stage', () => {
+    const { world, stages } = setup();
+    clearCurrentBoss(world, stages);
+    expect(world.events).toContainEqual({
+      name: 'bossDefeated',
+      payload: { stageId: FIRST.id },
+    });
+  });
+
   test('completing the final stage boss stays on the final stage', () => {
     const { world, stages } = setup();
     const last = STAGES[STAGES.length - 1];
