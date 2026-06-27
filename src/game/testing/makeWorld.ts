@@ -1,15 +1,18 @@
 import { Combat } from '../components/Combat.ts';
+import Inventory from '../components/Inventory.ts';
 import { Player, type PlayerState } from '../components/Player.ts';
 import { PlayerStats, type PlayerStatsState } from '../components/PlayerStats.ts';
 import { Stages } from '../components/Stages.ts';
-import { STAGES } from '../content/stages.ts';
+import { Unlocks } from '../components/Unlocks.ts';
 import { type Enemy, instantiateEnemy } from '../content/enemies.ts';
+import { STAGES } from '../content/stages.ts';
 import { GameCore } from '../GameCore.ts';
 import { expForLevel } from '../systems/progression.ts';
 import type {
   ComponentClass,
   GameCommandMap,
   GameCommandName,
+  GameContext,
   GameEventMap,
   GameEventName,
   IGameComponent,
@@ -18,9 +21,13 @@ import type {
 
 // A real-component test world. Unlike makeTestContext (which fakes the context
 // and stubs siblings), this wires up real GameCore components and seeds their
-// state. Queries hit the real getGameComponent; events really cascade. Use it
-// when a component reads from or reacts to siblings — seed the inputs you care
-// about instead of stubbing methods.
+// state. Queries hit the real getGameComponent; events really cascade. Reach
+// for it whenever a component reads from or reacts to siblings — seed the
+// inputs you care about instead of stubbing methods.
+//
+// See docs/ARCHITECTURE.md → "Testing the engine" for the assertion rules
+// (own your subsequence, never toEqual the whole log) and when to inject a fact
+// with emit() versus driving its real producer with runCommand().
 
 interface CapturedEvent<NameType extends GameEventName = GameEventName> {
   name: NameType;
@@ -39,8 +46,8 @@ export interface WorldSeed {
 }
 
 export interface WorldOptions {
-  // The dependency closure to build. Defaults to the combat-relevant set; pass
-  // your own to widen (full game) or narrow (fewer cross-talk listeners).
+  // The dependency closure to build. Defaults to the full game set; narrow it to
+  // cut cross-talk when a test only cares about a couple of components.
   components?: ComponentClass[];
   rng?: () => number;
   seed?: WorldSeed;
@@ -51,13 +58,35 @@ export interface World {
   // Every event emitted, in true cascade order (parent before children).
   events: CapturedEvent[];
   clearEvents(): void;
-  // Enqueue a command and drain it (commands batch to the next tick).
-  enqueue<K extends GameCommandName>(name: K, payload: GameCommandMap[K]): void;
+  // Enqueue a command and drain it now (commands normally batch to a tick).
+  runCommand<K extends GameCommandName>(name: K, payload: GameCommandMap[K]): void;
+  // Inject a fact into the real world: every listening component reacts (a real
+  // cascade, not a stub). Prefer driving the real producer via runCommand; use
+  // this when that producer is heavy or irrelevant to the unit under test
+  // (e.g. counting kills in Stages without making Combat kill anything).
+  emit<K extends GameEventName>(name: K, payload: GameEventMap[K]): void;
   // Advance the world by deltaMs: drain queued commands, then run onTick.
   tick(deltaMs?: number): void;
 }
 
-const DEFAULT_COMPONENTS: ComponentClass[] = [Player, PlayerStats, Stages, Combat];
+// Captures the shared context so the harness can emit facts into the real bus
+// without widening GameCore's public surface. Test-only; holds no game state.
+class WorldProbe implements IGameComponent {
+  readonly id = '__worldProbe';
+  context!: GameContext;
+  initialize(gameContext: GameContext): void {
+    this.context = gameContext;
+  }
+}
+
+const DEFAULT_COMPONENTS: ComponentClass[] = [
+  Player,
+  Stages,
+  Combat,
+  Inventory,
+  PlayerStats,
+  Unlocks,
+];
 
 function playerSeed(overrides: Partial<PlayerState> = {}): PlayerState {
   return { level: 1, exp: 0, expToNext: expForLevel(1), attack: 5, ...overrides };
@@ -96,7 +125,7 @@ function stagesSeed(overrides: WorldSeed['stages'] = {}): unknown {
 export function makeWorld(options: WorldOptions = {}): World {
   const events: CapturedEvent[] = [];
   const core = new GameCore({
-    components: options.components ?? DEFAULT_COMPONENTS,
+    components: [...(options.components ?? DEFAULT_COMPONENTS), WorldProbe],
     rng: options.rng ?? (() => 0),
     // Manual stepping: a no-op frame scheduler so nothing runs until tick().
     requestFrame: () => 0,
@@ -112,16 +141,19 @@ export function makeWorld(options: WorldOptions = {}): World {
   if (seed.combat) core.getGameComponent(Combat).load(combatSeed(seed.combat));
   if (seed.stages) core.getGameComponent(Stages).load(stagesSeed(seed.stages));
 
+  const probe = core.getGameComponent(WorldProbe);
+
   return {
     getComponent: (componentClass) => core.getGameComponent(componentClass),
     events,
     clearEvents: () => {
       events.length = 0;
     },
-    enqueue: (name, payload) => {
+    runCommand: (name, payload) => {
       core.enqueueCommand(name, payload);
       core.drainCommands();
     },
+    emit: (name, payload) => probe.context.emit(name, payload),
     tick: (deltaMs = 0) => core.tick(deltaMs),
   };
 }

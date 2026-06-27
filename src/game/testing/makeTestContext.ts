@@ -31,10 +31,14 @@ export interface TestContext {
   runCommand<K extends GameCommandName>(name: K, payload: GameCommandMap[K]): void;
 }
 
-// A faithful in-memory GameContext for unit-testing a single component in
-// isolation. emit/enqueue are captured (not routed); on/handle are recorded so
-// the test can drive the component with simulateEvent/runCommand. For
-// cross-component behaviour use a real createGame integration instead.
+// The isolation escape hatch. makeWorld (real components + seeded state) is the
+// default for component tests — see docs/ARCHITECTURE.md → "Testing the engine".
+// Reach for this only for a component that reads no siblings AND needs to assert
+// its *exact* emitted events with nothing reacting: a faithful in-memory
+// GameContext where emit/enqueue are captured (not routed) and on/handle are
+// recorded so the test drives the component with simulateEvent/runCommand. The
+// moment a test needs to stub a sibling (getGameComponent), use makeWorld
+// instead — that's the brittleness this fake used to invite.
 export function makeTestContext(options: TestContextOptions = {}): TestContext {
   const events: Captured<GameEventName>[] = [];
   const commands: Captured<GameCommandName>[] = [];
