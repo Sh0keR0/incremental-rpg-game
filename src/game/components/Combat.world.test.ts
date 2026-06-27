@@ -53,21 +53,14 @@ describe('Combat (real-world harness)', () => {
     ]);
   });
 
-  // THE CROSS-TALK CASE. With real siblings the kill really cascades: Player
-  // consumes enemyDefeated and emits expGained *between* defeat and respawn.
-  // A strict toEqual on the names would now fail — assert the owned subsequence.
+  // With real siblings the kill really cascades (Player emits expGained between
+  // defeat and respawn), so assert only the order of the events Combat owns —
+  // never the whole log, which new reactors would change for unrelated reasons.
   test('lethal hit announces enemyDefeated with reward + drops, then respawns', () => {
     const { world, combat } = setup();
     combat.damageEnemy(TEST_ENEMY.maxHp);
 
     expectEventOrder(world.events, ['attacked', 'enemyDefeated', 'enemySpawned']);
-    // The real cascade is visible — this is the cost of dropping isolation:
-    expect(world.events.map((event) => event.name)).toEqual([
-      'attacked',
-      'enemyDefeated',
-      'expGained', // Player reacting to the kill — sibling cross-talk
-      'enemySpawned',
-    ]);
 
     const defeated = world.events.find((event) => event.name === 'enemyDefeated');
     expect(defeated?.payload).toEqual({
