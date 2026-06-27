@@ -301,9 +301,8 @@ re-exports whatever the UI needs.
 - **Surface new data to the UI**: return it from the component's `getState`, then
   read it in `src/ui/render.ts`.
 - **Test it**: a new pure rule → a `systems/` unit test; a new component or
-  event reaction → a `makeTestContext` unit test for the component, plus a
-  `createGame` integration test when the behaviour spans components (e.g. a new
-  reaction to an existing fact). See [Testing the engine](#testing-the-engine).
+  event reaction → a `makeWorld` test that seeds the state it needs and drives
+  the real components. See [Testing the engine](#testing-the-engine).
 
 Keep game rules in components/`systems` (pure, fully tested per `CLAUDE.md`);
 keep the UI free of game logic.
@@ -327,18 +326,26 @@ randomness, and the frame clock — never reach for real timers or `Math.random`
 - `cascadeWarnDepth` — the cascade-guard threshold (`0` disables); the emitter's
   warn sink is injectable when you want to assert it logged.
 
-### Three test levels — pick the lowest that covers the rule
+### Two test levels — pick the lower one that covers the rule
 
 1. **Pure rules → test the `systems/` function directly.** Progression math,
    formulas, save round-trips. No engine, no context.
    (`systems/progression.test.ts`)
-2. **One component → `makeTestContext`.** Drive a single component in isolation
-   with a faithful fake context (below). (`components/*.test.ts`)
-3. **Cross-component flow → a real `createGame` integration + frame pump.** When
-   the behaviour spans components reacting to each other's events (kill → reward,
-   level-up → points). (`createGame.test.ts`) **Do not** fake sibling components
-   with `getGameComponent` stubs to test a cross-component flow — it's brittle (it
-   broke the moment rewards moved to events). Use a real integration.
+2. **A component → a real world via `makeWorld`.** Build the real components and
+   **seed the state** a test depends on; queries hit the real `getGameComponent`
+   and events really cascade. This is the default for component and
+   cross-component tests alike. (`components/Combat.test.ts`,
+   `components/Stages.test.ts`)
+
+   **Never stub a sibling component.** If a unit needs `getAttack()` to be 5,
+   seed the real `Player`'s state (`seed: { player: { attack: 5 } }`), don't fake
+   the method. Hand-rolled `getGameComponent` stubs are brittle — they broke the
+   moment rewards moved to events — and `makeWorld` removes the need for them.
+
+There is a third, **rarely-needed** tool for true isolation — `makeTestContext`
+(below) — for a component that reads no siblings *and* needs to assert its exact
+emitted events with nothing reacting. Prefer `makeWorld` unless you specifically
+need that isolation.
 
 ### Driving ticks
 
@@ -370,31 +377,66 @@ game.actions.attack(); // enqueues a command
 tick();                // drains it, runs the frame, renders once
 ```
 
-### Mocking one component: `makeTestContext`
+### Building a real world: `makeWorld`
 
-`src/game/testing/makeTestContext.ts` is the one canonical fake `GameContext`.
-Construct it, `initialize` the component with its `gameContext`, then:
+`src/game/testing/makeWorld.ts` builds a real `GameCore` over real components
+(`tick` and `now`/`rng` are injected for you) and returns:
 
-- `events` — facts the component **emitted**, in order (assert against this).
-- `commands` — commands it **enqueued**.
-- `simulateEvent(name, payload)` — deliver an **incoming** fact to the listeners
-  the component registered via `on()`; this is how you trigger a reaction.
-- `runCommand(name, payload)` — invoke the handler it registered via `handle()`.
-- `getGameComponent` — throws by default; pass an override only if the unit under
-  test queries another component.
+- `getComponent(Class)` — the **real** component; assert via its `getState()` or
+  public query methods.
+- `events` — every event emitted across the world, in true cascade order.
+- `runCommand(name, payload)` — enqueue a command and drain it now (the
+  synchronous equivalent of an `actions.*` call + tick).
+- `emit(name, payload)` — inject a fact into the real bus; **every** listening
+  component reacts. Prefer `runCommand` to drive a fact through its real
+  producer; use `emit` when that producer is heavy or irrelevant to the unit
+  (e.g. counting kills in `Stages` without making `Combat` kill anything).
+- `tick(deltaMs)` — drain queued commands, then run `onTick` on every component.
 
-The key distinction: **`emit` captures, it does not deliver.** Feed a component
-its inputs with `simulateEvent` and read its outputs from `events` — that keeps
-the unit isolated. If you need a real cascade, that's a level-3 integration.
+Two habits make these tests robust:
+
+- **Seed inputs, don't stub.** `makeWorld({ seed: { stats: { strength: 3 } } })`
+  sets real `PlayerStats` state; `Combat` then reads the real value. Seeds are
+  partials merged onto each component's real default.
+- **Assert the events you own — never `toEqual` the whole log.** A real world
+  cascades, and new reactors will add events between yours. Use `expectEventOrder`
+  (subsequence) for relative order, and `find` + a payload check for one event's
+  content. `toContainEqual` / `.find(...).toBeUndefined()` are fine too.
+
+Narrow the world (`components: [...]`) when a test only cares about a couple of
+components, to cut cross-talk in the log. For a full-stack test (save/load, the
+`actions` facade, the frame pump) use a real `createGame` integration —
+`createGame.test.ts` and "Driving ticks" above show the manual pump `makeWorld`
+encapsulates.
+
+The boundary to keep in mind: seeding controls a value cheaply **because** reads
+are direct state fields today. When a read becomes a cross-component derivation
+(say `attack` summed from equipment + buffs), seeding a *specific* target value
+gets harder — at that point pin it with a small builder, not a method stub.
+
+### Isolation escape hatch: `makeTestContext`
+
+`src/game/testing/makeTestContext.ts` is a fake `GameContext` whose `emit`
+**captures but does not deliver** — nothing reacts. Use it only when both hold:
+the component reads no siblings, and you want to assert its *exact* emitted
+events. (`Player`, `PlayerStats`, `Inventory`, `Unlocks` are the cases.) Drive it
+with `simulateEvent` (deliver an incoming fact to the component's own listeners)
+and `runCommand` (invoke a handler it registered); read outputs from `events`.
+The moment a test needs to stub a sibling, switch to `makeWorld`.
 
 ### What to avoid
 
+- **Stubbing a sibling component.** Seed its real state in a `makeWorld` instead;
+  hand-rolled `getGameComponent` fakes are the brittleness this design removes.
+- **`toEqual` on the whole event log.** It pins sibling cross-talk an unrelated
+  change will break; assert the subsequence your unit owns.
 - **Relying on event listener order.** The engine guarantees none (see "Events
   fire in an unspecified order"); a test asserting call order between two
   listeners encodes a forbidden assumption.
 - **Reading state right after an action without ticking.** Commands batch — the
-  change isn't visible until the next `tick()`.
+  change isn't visible until the next `tick()` (or a `runCommand`, which drains
+  for you).
 - **Real `requestAnimationFrame` / `performance.now`.** Non-deterministic and
-  async; always inject them.
+  async; always inject them (`makeWorld` and the pump already do).
 - **Reaching into private component fields.** Assert via `getState()`, public
   query methods, or emitted `events`.
