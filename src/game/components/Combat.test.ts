@@ -160,6 +160,20 @@ describe('Combat', () => {
     expect(combat.getState().enemy.hp).toBe(hpAfterFirst - attackDamage(DEFAULT_PLAYER_ATTACK, 0));
   });
 
+  test('a single large-delta tick fires one auto-hit per elapsed cooldown', () => {
+    const { world, combat } = setup();
+    world.runCommand('toggleAutoAttack', {});
+    combat.onTick(16); // consume the start-ready hit so we measure steady-state pacing
+    const hpAfterPrime = combat.getState().enemy.hp;
+
+    const cooldownMs = combat.getState().autoAttackCooldownMs;
+    const hitsToFire = 4;
+    combat.onTick(cooldownMs * hitsToFire);
+
+    const damagePerHit = attackDamage(DEFAULT_PLAYER_ATTACK, 0);
+    expect(combat.getState().enemy.hp).toBe(hpAfterPrime - damagePerHit * hitsToFire);
+  });
+
   test('toggleAutoAttack twice turns it back off', () => {
     const { world, combat } = setup();
     world.runCommand('toggleAutoAttack', {});

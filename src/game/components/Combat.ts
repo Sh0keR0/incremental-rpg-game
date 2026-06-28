@@ -35,15 +35,13 @@ export class Combat implements IGameComponent {
     gameContext.on('stageSelected', () => this.spawnNormalEnemy());
   }
 
-  // The cooldown governs only the auto-attack: it ticks down while enabled and
-  // fires a hit each time it reaches zero. The manual attack has no cooldown —
-  // the player can attack as fast as they can press.
   onTick(deltaMs: number): void {
     if (!this.autoAttackEnabled) return;
-    this.autoAttackCooldownRemainingMs = Math.max(0, this.autoAttackCooldownRemainingMs - deltaMs);
-    if (this.autoAttackCooldownRemainingMs > 0) return;
-    this.autoAttackCooldownRemainingMs = this.currentCooldownMs();
-    this.attack();
+    this.autoAttackCooldownRemainingMs -= deltaMs;
+    while (this.autoAttackCooldownRemainingMs <= 0) {
+      this.autoAttackCooldownRemainingMs += this.currentCooldownMs();
+      this.attack();
+    }
   }
 
   private toggleAutoAttack(): void {

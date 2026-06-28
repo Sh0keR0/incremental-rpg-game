@@ -16,7 +16,7 @@ export const STAGES: readonly StageDefinition[] = [
     id: 'forest',
     name: 'Whispering Forest',
     enemies: [
-      { name: 'Skeleton', maxHp: 30, expReward: 12, drops: [{ itemId: 'ShortSword', chance: 1 }] },
+      { name: 'Skeleton', maxHp: 30, expReward: 12, drops: [] },
       { name: 'Forest Bat', maxHp: 18, expReward: 7, drops: [] },
     ],
     killsToUnlockBoss: 5,
