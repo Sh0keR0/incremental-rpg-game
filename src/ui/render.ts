@@ -14,11 +14,9 @@ export const TEMPLATE = `
   <div class="game">
     <nav class="sidebar" role="tablist" aria-label="Game sections">
       <button class="nav-item active" type="button" role="tab" aria-selected="true" data-tab="combat">
-        <span class="nav-icon">⚔</span>
         <span class="nav-label">Combat</span>
       </button>
       <button class="nav-item foldable" type="button" role="tab" aria-selected="false" data-tab="stats" data-feature="stats">
-        <span class="nav-icon">↑</span>
         <span class="nav-label">Stats</span>
       </button>
       <button class="nav-item foldable" type="button" role="tab" aria-selected="false" data-tab="inventory" data-feature="inventory">
@@ -54,7 +52,6 @@ export const TEMPLATE = `
             <h2 class="enemy-name"></h2>
             <div class="boss-indicator" hidden>
               <span class="boss-tag">BOSS</span>
-              <span class="boss-timer"></span>
             </div>
           </div>
           <div class="bar hp-bar">
@@ -205,10 +202,6 @@ export function render(root: HTMLElement, state: GameSnapshot): void {
     const bossIndicator = root.querySelector<HTMLElement>('.boss-indicator');
     if (bossIndicator) {
         bossIndicator.style.display = inBoss ? 'flex' : 'none';
-        if (inBoss) {
-            const timer = bossIndicator.querySelector<HTMLElement>('.boss-timer');
-            if (timer) timer.textContent = `${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
-        }
     }
     setBar(root, '.hp-bar', enemy.hp, enemy.maxHp, `${enemy.hp} / ${enemy.maxHp} HP`);
 
