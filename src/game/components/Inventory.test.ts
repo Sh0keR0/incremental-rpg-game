@@ -3,85 +3,85 @@ import { makeTestContext } from '../testing/makeTestContext.ts';
 import Inventory from './Inventory.ts';
 
 function makeInventory() {
-  const { gameContext, events, simulateEvent } = makeTestContext();
-  const inventory = new Inventory();
-  inventory.initialize(gameContext);
-  return { inventory, events, simulateEvent };
+    const { gameContext, events, simulateEvent } = makeTestContext();
+    const inventory = new Inventory();
+    inventory.initialize(gameContext);
+    return { inventory, events, simulateEvent };
 }
 
 describe('Inventory', () => {
-  test('starts empty with a 5x5 grid of undefined slots', () => {
-    const { inventory } = makeInventory();
-    const { slots } = inventory.getState();
-    expect(slots.length).toBe(5);
-    expect(slots.every((row) => row.length === 5)).toBe(true);
-    expect(slots.flat().every((slot) => slot === undefined)).toBe(true);
-    expect(inventory.isInventoryFull()).toBe(false);
-  });
+    test('starts empty with a 5x5 grid of undefined slots', () => {
+        const { inventory } = makeInventory();
+        const { slots } = inventory.getState();
+        expect(slots.length).toBe(5);
+        expect(slots.every((row) => row.length === 5)).toBe(true);
+        expect(slots.flat().every((slot) => slot === undefined)).toBe(true);
+        expect(inventory.isInventoryFull()).toBe(false);
+    });
 
-  test('add places the item in the first available slot and emits inventoryUpdated', () => {
-    const { inventory, events } = makeInventory();
-    const added = inventory.add('WoodenSword');
+    test('add places the item in the first available slot and emits inventoryUpdated', () => {
+        const { inventory, events } = makeInventory();
+        const added = inventory.add('WoodenSword');
 
-    expect(added).toBe(true);
-    expect(inventory.getState().slots[0][0]).toBe('WoodenSword');
-    expect(events).toEqual([
-      { name: 'inventoryUpdated', payload: { inventory: inventory.getState() } },
-    ]);
-  });
+        expect(added).toBe(true);
+        expect(inventory.getState().slots[0][0]).toBe('WoodenSword');
+        expect(events).toEqual([
+            { name: 'inventoryUpdated', payload: { inventory: inventory.getState() } },
+        ]);
+    });
 
-  test('add fills slots left-to-right, top-to-bottom', () => {
-    const { inventory } = makeInventory();
-    inventory.add('WoodenSword');
-    inventory.add('ShortSword');
+    test('add fills slots left-to-right, top-to-bottom', () => {
+        const { inventory } = makeInventory();
+        inventory.add('WoodenSword');
+        inventory.add('ShortSword');
 
-    const { slots } = inventory.getState();
-    expect(slots[0][0]).toBe('WoodenSword');
-    expect(slots[0][1]).toBe('ShortSword');
-  });
+        const { slots } = inventory.getState();
+        expect(slots[0][0]).toBe('WoodenSword');
+        expect(slots[0][1]).toBe('ShortSword');
+    });
 
-  test('add throws for an unknown item id', () => {
-    const { inventory } = makeInventory();
-    expect(() => inventory.add('NotARealItem')).toThrow('Item with id NotARealItem not found.');
-  });
+    test('add throws for an unknown item id', () => {
+        const { inventory } = makeInventory();
+        expect(() => inventory.add('NotARealItem')).toThrow('Item with id NotARealItem not found.');
+    });
 
-  test('add returns false and does not emit when the inventory is full', () => {
-    const { inventory, events } = makeInventory();
-    for (let slot = 0; slot < 25; slot++) {
-      inventory.add('WoodenSword');
-    }
-    expect(inventory.isInventoryFull()).toBe(true);
+    test('add returns false and does not emit when the inventory is full', () => {
+        const { inventory, events } = makeInventory();
+        for (let slot = 0; slot < 25; slot++) {
+            inventory.add('WoodenSword');
+        }
+        expect(inventory.isInventoryFull()).toBe(true);
 
-    const eventsBefore = events.length;
-    const added = inventory.add('ShortSword');
+        const eventsBefore = events.length;
+        const added = inventory.add('ShortSword');
 
-    expect(added).toBe(false);
-    expect(events.length).toBe(eventsBefore);
-  });
+        expect(added).toBe(false);
+        expect(events.length).toBe(eventsBefore);
+    });
 
-  test('save/load round-trips the inventory state', () => {
-    const { inventory } = makeInventory();
-    inventory.add('WoodenSword');
-    inventory.add('ShortSword');
-    const saved = inventory.save();
+    test('save/load round-trips the inventory state', () => {
+        const { inventory } = makeInventory();
+        inventory.add('WoodenSword');
+        inventory.add('ShortSword');
+        const saved = inventory.save();
 
-    const restored = makeInventory().inventory;
-    restored.load(saved as ReturnType<Inventory['getState']>);
-    expect(restored.getState()).toEqual(inventory.getState());
-  });
+        const restored = makeInventory().inventory;
+        restored.load(saved as ReturnType<Inventory['getState']>);
+        expect(restored.getState()).toEqual(inventory.getState());
+    });
 
-  // JSON round-trips turn empty slots from undefined into null; load must
-  // normalize them back or the grid looks permanently full to findFirstAvailable.
-  test('load normalizes JSON null slots so the inventory is still usable', () => {
-    const { inventory } = makeInventory();
-    inventory.add('WoodenSword');
-    const throughJson = JSON.parse(JSON.stringify(inventory.save()));
+    // JSON round-trips turn empty slots from undefined into null; load must
+    // normalize them back or the grid looks permanently full to findFirstAvailable.
+    test('load normalizes JSON null slots so the inventory is still usable', () => {
+        const { inventory } = makeInventory();
+        inventory.add('WoodenSword');
+        const throughJson = JSON.parse(JSON.stringify(inventory.save()));
 
-    const restored = makeInventory().inventory;
-    restored.load(throughJson);
+        const restored = makeInventory().inventory;
+        restored.load(throughJson);
 
-    expect(restored.getState().slots[0][1]).toBeUndefined();
-    expect(restored.isInventoryFull()).toBe(false);
-    expect(restored.add('ShortSword')).toBe(true);
-  });
+        expect(restored.getState().slots[0][1]).toBeUndefined();
+        expect(restored.isInventoryFull()).toBe(false);
+        expect(restored.add('ShortSword')).toBe(true);
+    });
 });

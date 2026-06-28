@@ -1,11 +1,11 @@
 import {
-  type FeatureKey,
-  getNavigableStageId,
-  getStageById,
-  type GameSnapshot,
-  type StagesState,
-  type StatName,
-  type UnlocksState,
+    type FeatureKey,
+    getNavigableStageId,
+    getStageById,
+    type GameSnapshot,
+    type StagesState,
+    type StatName,
+    type UnlocksState,
 } from '../game/index.ts';
 import type { InventoryData } from '../game/components/Inventory.ts';
 
@@ -73,138 +73,145 @@ export const TEMPLATE = `
 `;
 
 function setBar(
-  root: HTMLElement,
-  selector: string,
-  value: number,
-  max: number,
-  label: string,
+    root: HTMLElement,
+    selector: string,
+    value: number,
+    max: number,
+    label: string,
 ): void {
-  const bar = root.querySelector<HTMLElement>(selector);
-  if (!bar) return;
-  const fill = bar.querySelector<HTMLElement>('.bar-fill');
-  const text = bar.querySelector<HTMLElement>('.bar-label');
-  const percent = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
-  if (fill) fill.style.width = `${percent}%`;
-  if (text) text.textContent = label;
+    const bar = root.querySelector<HTMLElement>(selector);
+    if (!bar) return;
+    const fill = bar.querySelector<HTMLElement>('.bar-fill');
+    const text = bar.querySelector<HTMLElement>('.bar-label');
+    const percent = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+    if (fill) fill.style.width = `${percent}%`;
+    if (text) text.textContent = label;
 }
 
 function renderStageSelector(root: HTMLElement, stages: StagesState): void {
-  const canMove = stages.mode === 'normal';
-  const prev = root.querySelector<HTMLButtonElement>('.stage-prev');
-  if (prev) {
-    prev.disabled =
-      !canMove ||
-      getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, -1) === undefined;
-  }
-  const next = root.querySelector<HTMLButtonElement>('.stage-next');
-  if (next) {
-    next.disabled =
-      !canMove ||
-      getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, 1) === undefined;
-  }
+    const canMove = stages.mode === 'normal';
+    const prev = root.querySelector<HTMLButtonElement>('.stage-prev');
+    if (prev) {
+        prev.disabled =
+            !canMove ||
+            getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, -1) === undefined;
+    }
+    const next = root.querySelector<HTMLButtonElement>('.stage-next');
+    if (next) {
+        next.disabled =
+            !canMove ||
+            getNavigableStageId(stages.currentStageId, stages.unlockedStageIds, 1) === undefined;
+    }
 }
 
 function renderStageProgress(
-  root: HTMLElement,
-  stages: StagesState,
-  killsToUnlockBoss: number,
+    root: HTMLElement,
+    stages: StagesState,
+    killsToUnlockBoss: number,
 ): void {
-  const progress = root.querySelector<HTMLElement>('.stage-progress');
-  if (!progress) return;
-  if (stages.mode === 'boss') {
-    progress.textContent = `BOSS — ${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
-  } else if (stages.bossUnlocked) {
-    progress.textContent = 'Boss ready!';
-  } else {
-    progress.textContent = `Kills: ${stages.kills} / ${killsToUnlockBoss}`;
-  }
+    const progress = root.querySelector<HTMLElement>('.stage-progress');
+    if (!progress) return;
+    if (stages.mode === 'boss') {
+        progress.textContent = `BOSS — ${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
+    } else if (stages.bossUnlocked) {
+        progress.textContent = 'Boss ready!';
+    } else {
+        progress.textContent = `Kills: ${stages.kills} / ${killsToUnlockBoss}`;
+    }
 }
 
 export function render(root: HTMLElement, state: GameSnapshot): void {
-  const { player, stages } = state;
-  const enemy = state.combat.enemy;
-  const currentStage = getStageById(stages.currentStageId);
+    const { player, stages } = state;
+    const enemy = state.combat.enemy;
+    const currentStage = getStageById(stages.currentStageId);
 
-  const stageName = root.querySelector<HTMLElement>('.stage-name');
-  if (stageName) stageName.textContent = currentStage?.name ?? '';
-  renderStageSelector(root, stages);
-  renderStageProgress(root, stages, currentStage?.killsToUnlockBoss ?? 0);
+    const stageName = root.querySelector<HTMLElement>('.stage-name');
+    if (stageName) stageName.textContent = currentStage?.name ?? '';
+    renderStageSelector(root, stages);
+    renderStageProgress(root, stages, currentStage?.killsToUnlockBoss ?? 0);
 
-  const name = root.querySelector<HTMLElement>('.enemy-name');
-  if (name) name.textContent = enemy.name;
-  root.querySelector('.enemy-panel')?.classList.toggle('boss', state.combat.isBoss);
-  setBar(root, '.hp-bar', enemy.hp, enemy.maxHp, `${enemy.hp} / ${enemy.maxHp} HP`);
+    const name = root.querySelector<HTMLElement>('.enemy-name');
+    if (name) name.textContent = enemy.name;
+    root.querySelector('.enemy-panel')?.classList.toggle('boss', state.combat.isBoss);
+    setBar(root, '.hp-bar', enemy.hp, enemy.maxHp, `${enemy.hp} / ${enemy.maxHp} HP`);
 
-  const autoAttackButton = root.querySelector<HTMLButtonElement>('.auto-attack-btn');
-  if (autoAttackButton) {
-    const { autoAttackEnabled, autoAttackCooldownRemainingMs, autoAttackCooldownMs } = state.combat;
-    autoAttackButton.classList.toggle('active', autoAttackEnabled);
-    autoAttackButton.setAttribute('aria-pressed', String(autoAttackEnabled));
-    const label = autoAttackButton.querySelector<HTMLElement>('.auto-attack-label');
-    if (label) label.textContent = `Auto-Attack: ${autoAttackEnabled ? 'On' : 'Off'}`;
-    const cooldown = autoAttackButton.querySelector<HTMLElement>('.attack-cooldown');
-    if (cooldown) {
-      const remainingPercent =
-        autoAttackEnabled && autoAttackCooldownMs > 0
-          ? (autoAttackCooldownRemainingMs / autoAttackCooldownMs) * 100
-          : 0;
-      cooldown.style.width = `${Math.max(0, Math.min(100, remainingPercent))}%`;
+    const autoAttackButton = root.querySelector<HTMLButtonElement>('.auto-attack-btn');
+    if (autoAttackButton) {
+        const { autoAttackEnabled, autoAttackCooldownRemainingMs, autoAttackCooldownMs } =
+            state.combat;
+        autoAttackButton.classList.toggle('active', autoAttackEnabled);
+        autoAttackButton.setAttribute('aria-pressed', String(autoAttackEnabled));
+        const label = autoAttackButton.querySelector<HTMLElement>('.auto-attack-label');
+        if (label) label.textContent = `Auto-Attack: ${autoAttackEnabled ? 'On' : 'Off'}`;
+        const cooldown = autoAttackButton.querySelector<HTMLElement>('.attack-cooldown');
+        if (cooldown) {
+            const remainingPercent =
+                autoAttackEnabled && autoAttackCooldownMs > 0
+                    ? (autoAttackCooldownRemainingMs / autoAttackCooldownMs) * 100
+                    : 0;
+            cooldown.style.width = `${Math.max(0, Math.min(100, remainingPercent))}%`;
+        }
     }
-  }
 
-  const fightBossButton = root.querySelector<HTMLButtonElement>('.fight-boss-btn');
-  if (fightBossButton) {
-    const canFightBoss = stages.bossUnlocked && stages.mode === 'normal';
-    fightBossButton.hidden = !canFightBoss;
-    fightBossButton.disabled = !canFightBoss;
-  }
+    const fightBossButton = root.querySelector<HTMLButtonElement>('.fight-boss-btn');
+    if (fightBossButton) {
+        const canFightBoss = stages.bossUnlocked && stages.mode === 'normal';
+        fightBossButton.hidden = !canFightBoss;
+        fightBossButton.disabled = !canFightBoss;
+    }
 
-  const level = root.querySelector<HTMLElement>('.player-level');
-  if (level) level.textContent = `Level ${player.level}`;
-  setBar(root, '.exp-bar', player.exp, player.expToNext, `${player.exp} / ${player.expToNext} EXP`);
+    const level = root.querySelector<HTMLElement>('.player-level');
+    if (level) level.textContent = `Level ${player.level}`;
+    setBar(
+        root,
+        '.exp-bar',
+        player.exp,
+        player.expToNext,
+        `${player.exp} / ${player.expToNext} EXP`,
+    );
 
-  applyUnlocks(root, state.unlocks);
+    applyUnlocks(root, state.unlocks);
 }
 
 function applyUnlocks(root: HTMLElement, unlocks: UnlocksState): void {
-  for (const section of root.querySelectorAll<HTMLElement>('[data-feature]')) {
-    const feature = section.dataset.feature as FeatureKey;
-    section.classList.toggle('revealed', unlocks.unlocked.includes(feature));
-  }
+    for (const section of root.querySelectorAll<HTMLElement>('[data-feature]')) {
+        const feature = section.dataset.feature as FeatureKey;
+        section.classList.toggle('revealed', unlocks.unlocked.includes(feature));
+    }
 }
 
 export function revealFeature(root: HTMLElement, feature: FeatureKey): void {
-  root.querySelector<HTMLElement>(`[data-feature="${feature}"]`)?.classList.add('revealed');
+    root.querySelector<HTMLElement>(`[data-feature="${feature}"]`)?.classList.add('revealed');
 }
 
 export function renderStats(root: HTMLElement, state: GameSnapshot): void {
-  const { stats, unspentPoints } = state.stats;
-  const pointsLabel = root.querySelector<HTMLElement>('.stats-points');
-  if (pointsLabel) {
-    pointsLabel.textContent = unspentPoints > 0 ? `(${unspentPoints} pts)` : '';
-  }
+    const { stats, unspentPoints } = state.stats;
+    const pointsLabel = root.querySelector<HTMLElement>('.stats-points');
+    if (pointsLabel) {
+        pointsLabel.textContent = unspentPoints > 0 ? `(${unspentPoints} pts)` : '';
+    }
 
-  for (const statName of Object.keys(stats) as StatName[]) {
-    const row = root.querySelector<HTMLElement>(`.stat-row[data-stat="${statName}"]`);
-    if (!row) continue;
-    const valueElement = row.querySelector<HTMLElement>('.stat-value');
-    if (valueElement) valueElement.textContent = String(stats[statName]);
-    const button = row.querySelector<HTMLButtonElement>('.stat-allocate-btn');
-    if (button) button.disabled = unspentPoints <= 0;
-  }
+    for (const statName of Object.keys(stats) as StatName[]) {
+        const row = root.querySelector<HTMLElement>(`.stat-row[data-stat="${statName}"]`);
+        if (!row) continue;
+        const valueElement = row.querySelector<HTMLElement>('.stat-value');
+        if (valueElement) valueElement.textContent = String(stats[statName]);
+        const button = row.querySelector<HTMLButtonElement>('.stat-allocate-btn');
+        if (button) button.disabled = unspentPoints <= 0;
+    }
 }
 
 export function updateInventoryUI(inventoryData: InventoryData): void {
-  const inventoryElement = document.getElementById('inventory');
-  if (!inventoryElement) {
-    return;
-  }
-  let html = '';
-  for (let i = 0; i < inventoryData.slots.length; i++) {
-    for (let j = 0; j < inventoryData.slots[i].length; j++) {
-      html += `<div data-inventory-slot="[${i},${j}]" class="inventory-slot">${inventoryData.slots[i][j] ? 'I' : ''}</div>`;
+    const inventoryElement = document.getElementById('inventory');
+    if (!inventoryElement) {
+        return;
     }
-  }
+    let html = '';
+    for (let i = 0; i < inventoryData.slots.length; i++) {
+        for (let j = 0; j < inventoryData.slots[i].length; j++) {
+            html += `<div data-inventory-slot="[${i},${j}]" class="inventory-slot">${inventoryData.slots[i][j] ? 'I' : ''}</div>`;
+        }
+    }
 
-  inventoryElement.innerHTML = html;
+    inventoryElement.innerHTML = html;
 }

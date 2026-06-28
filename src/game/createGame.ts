@@ -10,120 +10,120 @@ import Inventory, { type InventoryData } from './components/Inventory.ts';
 import { type UnlocksState, Unlocks } from './components/Unlocks.ts';
 
 export type GameOptions = Omit<GameCoreOptions, 'components'> & {
-  storage?: SaveStorage;
+    storage?: SaveStorage;
 };
 
 export interface GameSnapshot {
-  player: PlayerState;
-  combat: CombatState;
-  inventory: InventoryData;
-  stats: PlayerStatsState;
-  stages: StagesState;
-  unlocks: UnlocksState;
+    player: PlayerState;
+    combat: CombatState;
+    inventory: InventoryData;
+    stats: PlayerStatsState;
+    stages: StagesState;
+    unlocks: UnlocksState;
 }
 
 export interface Game {
-  getState(): GameSnapshot;
+    getState(): GameSnapshot;
 
-  subscribe(listener: (state: GameSnapshot) => void): () => void;
+    subscribe(listener: (state: GameSnapshot) => void): () => void;
 
-  on<K extends GameEventName>(name: K, listener: (payload: GameEventMap[K]) => void): () => void;
+    on<K extends GameEventName>(name: K, listener: (payload: GameEventMap[K]) => void): () => void;
 
-  actions: {
-    attack(): void;
-    toggleAutoAttack(): void;
-    allocateStat(statName: StatName): void;
-    fightBoss(): void;
-    selectStage(stageId: string): void;
-  };
+    actions: {
+        attack(): void;
+        toggleAutoAttack(): void;
+        allocateStat(statName: StatName): void;
+        fightBoss(): void;
+        selectStage(stageId: string): void;
+    };
 
-  start(): void;
+    start(): void;
 
-  stop(): void;
+    stop(): void;
 
-  save(): void;
+    save(): void;
 
-  load(): boolean;
+    load(): boolean;
 
-  hasSave(): boolean;
+    hasSave(): boolean;
 
-  clearSave(): void;
+    clearSave(): void;
 
-  resetGame(): void;
+    resetGame(): void;
 }
 
 export function createGame(options: GameOptions = {}): Game {
-  const { storage = createLocalStorageAdapter(), ...coreOptions } = options;
-  const now = coreOptions.now ?? (() => performance.now());
-  const core = new GameCore({
-    ...coreOptions,
-    components: [Player, Stages, Combat, Inventory, PlayerStats, Unlocks],
-  });
+    const { storage = createLocalStorageAdapter(), ...coreOptions } = options;
+    const now = coreOptions.now ?? (() => performance.now());
+    const core = new GameCore({
+        ...coreOptions,
+        components: [Player, Stages, Combat, Inventory, PlayerStats, Unlocks],
+    });
 
-  const getState = (): GameSnapshot => ({
-    player: core.getGameComponent(Player).getState(),
-    combat: core.getGameComponent(Combat).getState(),
-    inventory: core.getGameComponent(Inventory).getState(),
-    stats: core.getGameComponent(PlayerStats).getState(),
-    stages: core.getGameComponent(Stages).getState(),
-    unlocks: core.getGameComponent(Unlocks).getState(),
-  });
+    const getState = (): GameSnapshot => ({
+        player: core.getGameComponent(Player).getState(),
+        combat: core.getGameComponent(Combat).getState(),
+        inventory: core.getGameComponent(Inventory).getState(),
+        stats: core.getGameComponent(PlayerStats).getState(),
+        stages: core.getGameComponent(Stages).getState(),
+        unlocks: core.getGameComponent(Unlocks).getState(),
+    });
 
-  let gameReset = false;
+    let gameReset = false;
 
-  return {
-    getState,
-    subscribe(listener) {
-      return core.subscribe(() => listener(getState()));
-    },
-    on(name, listener) {
-      return core.on(name, listener);
-    },
-    actions: {
-      attack() {
-        core.enqueueCommand('attack', {});
-      },
-      toggleAutoAttack() {
-        core.enqueueCommand('toggleAutoAttack', {});
-      },
-      allocateStat(statName: StatName) {
-        core.enqueueCommand('allocateStat', { statName });
-      },
-      fightBoss() {
-        core.enqueueCommand('fightBoss', {});
-      },
-      selectStage(stageId: string) {
-        core.enqueueCommand('selectStage', { stageId });
-      },
-    },
-    start() {
-      core.start();
-    },
-    stop() {
-      core.stop();
-    },
-    save() {
-      if (gameReset) {
-        return;
-      }
-      storage.write(serializeSave(core.save(), now()));
-    },
-    load() {
-      const data = parseSave(storage.read());
-      if (!data) return false;
-      core.load(data);
-      return true;
-    },
-    hasSave() {
-      return parseSave(storage.read()) !== null;
-    },
-    clearSave() {
-      storage.clear();
-    },
-    resetGame() {
-      gameReset = true;
-      this.clearSave();
-      location.reload();
-    },
-  };
+    return {
+        getState,
+        subscribe(listener) {
+            return core.subscribe(() => listener(getState()));
+        },
+        on(name, listener) {
+            return core.on(name, listener);
+        },
+        actions: {
+            attack() {
+                core.enqueueCommand('attack', {});
+            },
+            toggleAutoAttack() {
+                core.enqueueCommand('toggleAutoAttack', {});
+            },
+            allocateStat(statName: StatName) {
+                core.enqueueCommand('allocateStat', { statName });
+            },
+            fightBoss() {
+                core.enqueueCommand('fightBoss', {});
+            },
+            selectStage(stageId: string) {
+                core.enqueueCommand('selectStage', { stageId });
+            },
+        },
+        start() {
+            core.start();
+        },
+        stop() {
+            core.stop();
+        },
+        save() {
+            if (gameReset) {
+                return;
+            }
+            storage.write(serializeSave(core.save(), now()));
+        },
+        load() {
+            const data = parseSave(storage.read());
+            if (!data) return false;
+            core.load(data);
+            return true;
+        },
+        hasSave() {
+            return parseSave(storage.read()) !== null;
+        },
+        clearSave() {
+            storage.clear();
+        },
+        resetGame() {
+            gameReset = true;
+            this.clearSave();
+            location.reload();
+        },
+    };
 }
