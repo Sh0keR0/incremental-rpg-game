@@ -436,6 +436,15 @@ The moment a test needs to stub a sibling, switch to `makeWorld`.
 - **Reading state right after an action without ticking.** Commands batch — the
   change isn't visible until the next `tick()` (or a `runCommand`, which drains
   for you).
+- **Hard-coding balance-derived numbers in assertions.** `expect(hp).toBe(maxHp - 11)`
+  bakes in base attack *and* damage-per-strength; re-tuning either breaks a
+  still-correct test. Import the constant and call the real formula
+  (`attackDamage(DEFAULT_PLAYER_ATTACK, strength)`, `expForLevel(n)`) so balance
+  changes flow through, and assert the *shape* (identity, linearity, monotonicity)
+  rather than a frozen product. Size fixtures off the formula too — give a test
+  enemy roomy HP so a re-tuned hit stays non-lethal. Explicit *inputs*
+  (`damageEnemy(5)`) stay literal; only the derived *expectations* must track the
+  constants. (`combatStats.test.ts`, `Combat.test.ts`, `progression.test.ts`)
 - **Real `requestAnimationFrame` / `performance.now`.** Non-deterministic and
   async; always inject them (`makeWorld` and the pump already do).
 - **Reaching into private component fields.** Assert via `getState()`, public

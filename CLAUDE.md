@@ -105,8 +105,10 @@ small functions over narration.
   workaround, or *why* a surprising choice was made. Explain the **why**, not
   the **what**.
 - Keep necessary comments short — one line where possible.
-- A comment that explains a non-obvious magic number in a test (e.g. why an
-  expected EXP value is what it is) counts as necessary.
+- A comment that explains a non-obvious literal in a test (e.g. why a fixture's
+  `expReward` sits just below `expForLevel(1)`) counts as necessary. Prefer
+  deriving balance-dependent expectations from the constants over a commented
+  magic number (see the Testing conventions).
 
 ## Testing
 
@@ -144,6 +146,14 @@ break the game if it were wrong.
 - Test pure functions with explicit inputs and outputs — no global state.
   Pass time, RNG, and config in as arguments rather than reading them inside
   the function, so tests stay deterministic.
+- **Derive balance-dependent expectations from the constants — don't freeze the
+  product.** This is an incremental game: balance values *are meant to change*,
+  and re-tuning one must never fail a test whose formula is still correct. Import
+  the constant or call the real formula and assert the *shape* — identity,
+  linearity, monotonicity — e.g. `attackDamage(DEFAULT_PLAYER_ATTACK, strength)`
+  and `expForLevel(n)` rather than baking in `11` or `15`. Explicit *inputs* stay
+  literal (`damageEnemy(5)`); it's the derived *expectations* that must track the
+  constants. A test should fail only when behavior actually changes.
 - Keep one behavior per `test`; name it after the rule being verified
   (`'levels up when XP crosses the threshold'`), not the function name.
 - Use `vitest run` in CI / one-off checks; `npm test` watches during dev.
