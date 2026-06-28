@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
+import { expForLevel } from '../systems/progression.ts';
 import { makeTestContext } from '../testing/makeTestContext.ts';
-import { Player } from './Player.ts';
+import { DEFAULT_PLAYER_ATTACK, Player } from './Player.ts';
 
 function makePlayer() {
   const { gameContext, events, simulateEvent } = makeTestContext();
@@ -12,21 +13,34 @@ function makePlayer() {
 describe('Player', () => {
   test('starts at level 1 with base stats', () => {
     const { player } = makePlayer();
-    expect(player.getState()).toEqual({ level: 1, exp: 0, expToNext: 15, attack: 5 });
-    expect(player.getAttack()).toBe(5);
+    expect(player.getState()).toEqual({
+      level: 1,
+      exp: 0,
+      expToNext: expForLevel(1),
+      attack: DEFAULT_PLAYER_ATTACK,
+    });
+    expect(player.getAttack()).toBe(DEFAULT_PLAYER_ATTACK);
   });
 
   test('gainExp accumulates and emits expGained without leveling', () => {
     const { player, events } = makePlayer();
-    player.gainExp(5);
-    expect(player.getState()).toMatchObject({ level: 1, exp: 5 });
-    expect(events).toEqual([{ name: 'expGained', payload: { amount: 5, exp: 5, expToNext: 15 } }]);
+    const belowThreshold = expForLevel(1) - 1;
+    player.gainExp(belowThreshold);
+    expect(player.getState()).toMatchObject({ level: 1, exp: belowThreshold });
+    expect(events).toEqual([
+      {
+        name: 'expGained',
+        payload: { amount: belowThreshold, exp: belowThreshold, expToNext: expForLevel(1) },
+      },
+    ]);
   });
 
   test('gainExp levels up and emits one leveledUp per level', () => {
     const { player, events } = makePlayer();
-    player.gainExp(100); // crosses levels 2, 3, 4
-    expect(player.getState()).toMatchObject({ level: 4, exp: 10 });
+    const remainder = 10;
+    // Enough to clear levels 2, 3 and 4 with some EXP to spare, derived from the curve.
+    player.gainExp(expForLevel(1) + expForLevel(2) + expForLevel(3) + remainder);
+    expect(player.getState()).toMatchObject({ level: 4, exp: remainder });
     expect(events.map((event) => event.name)).toEqual([
       'expGained',
       'leveledUp',
@@ -41,7 +55,7 @@ describe('Player', () => {
 
   test('save/load round-trips state', () => {
     const { player } = makePlayer();
-    player.gainExp(18); // level 2, exp 3
+    player.gainExp(expForLevel(1) + 3); // level 2, exp 3
     const saved = player.save();
 
     const restored = makePlayer().player;
