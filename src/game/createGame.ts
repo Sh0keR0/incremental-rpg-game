@@ -24,8 +24,11 @@ export interface GameSnapshot {
 
 export interface Game {
   getState(): GameSnapshot;
+
   subscribe(listener: (state: GameSnapshot) => void): () => void;
+
   on<K extends GameEventName>(name: K, listener: (payload: GameEventMap[K]) => void): () => void;
+
   actions: {
     attack(): void;
     toggleAutoAttack(): void;
@@ -33,12 +36,20 @@ export interface Game {
     fightBoss(): void;
     selectStage(stageId: string): void;
   };
+
   start(): void;
+
   stop(): void;
+
   save(): void;
+
   load(): boolean;
+
   hasSave(): boolean;
+
   clearSave(): void;
+
+  resetGame(): void;
 }
 
 export function createGame(options: GameOptions = {}): Game {
@@ -57,6 +68,8 @@ export function createGame(options: GameOptions = {}): Game {
     stages: core.getGameComponent(Stages).getState(),
     unlocks: core.getGameComponent(Unlocks).getState(),
   });
+
+  let gameReset = false;
 
   return {
     getState,
@@ -90,6 +103,9 @@ export function createGame(options: GameOptions = {}): Game {
       core.stop();
     },
     save() {
+      if (gameReset) {
+        return;
+      }
       storage.write(serializeSave(core.save(), now()));
     },
     load() {
@@ -103,6 +119,11 @@ export function createGame(options: GameOptions = {}): Game {
     },
     clearSave() {
       storage.clear();
+    },
+    resetGame() {
+      gameReset = true;
+      this.clearSave();
+      location.reload();
     },
   };
 }

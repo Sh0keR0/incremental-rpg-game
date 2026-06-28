@@ -25,8 +25,7 @@ export function mountUI(game: Game, root: HTMLElement): void {
   });
   root.querySelector<HTMLButtonElement>('.reset-btn')?.addEventListener('click', () => {
     if (!confirm('Reset all progress and start a new game?')) return;
-    game.clearSave();
-    location.reload();
+    game.resetGame();
   });
   root.querySelector<HTMLButtonElement>('.fight-boss-btn')?.addEventListener('click', () => {
     game.actions.fightBoss();
