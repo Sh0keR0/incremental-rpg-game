@@ -60,9 +60,6 @@ describe('Combat', () => {
         });
     });
 
-    // With real siblings the kill really cascades (Player emits expGained, Inventory
-    // takes the drop) between defeat and respawn, so assert only the order of the
-    // events Combat owns — never the whole log, which new reactors would change.
     test('lethal hit announces enemyDefeated with reward + drops, then respawns', () => {
         const { world, combat } = setup();
         combat.damageEnemy(TEST_ENEMY.maxHp);
@@ -81,8 +78,6 @@ describe('Combat', () => {
         expect(combat.getState().isBoss).toBe(false);
     });
 
-    // Controlled input via state seeding, not a stub: strength 3 is seeded into the
-    // real PlayerStats, and Combat reads it through the real query.
     test('strength raises the damage the attack command deals', () => {
         const { world, combat } = setup({ stats: { strength: 3 } });
         world.runCommand('attack', {});
@@ -113,8 +108,6 @@ describe('Combat', () => {
         );
     });
 
-    // Reactions can't be injected as bare facts here: to get a bossStarted we drive
-    // its real producer (Stages) — unlock the boss, then send the fightBoss command.
     test('reacts to a real bossStarted by spawning the stage boss', () => {
         const { world, combat } = setup({ stages: { bossUnlocked: true } });
         world.runCommand('fightBoss', {});

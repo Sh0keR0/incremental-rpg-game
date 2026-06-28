@@ -24,7 +24,7 @@ export const STAGES: readonly StageDefinition[] = [
             name: 'Elder Treant',
             maxHp: 180,
             expReward: 80,
-            drops: [{ itemId: 'ShortSword', chance: 1 }],
+            drops: [],
         },
         bossTimeLimitMs: 30000,
     },
