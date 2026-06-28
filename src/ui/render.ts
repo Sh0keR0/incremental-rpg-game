@@ -43,11 +43,20 @@ export const TEMPLATE = `
             <h2 class="stage-name"></h2>
             <button class="stage-arrow stage-next" type="button" aria-label="Next stage">›</button>
           </div>
-          <div class="stage-progress"></div>
+          <div class="stage-footer">
+            <div class="stage-progress"></div>
+            <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
+          </div>
         </section>
         <section class="enemy-panel">
           <p class="enemy-label">CURRENT ENEMY</p>
-          <h2 class="enemy-name"></h2>
+          <div class="enemy-name-row">
+            <h2 class="enemy-name"></h2>
+            <div class="boss-indicator" hidden>
+              <span class="boss-tag">BOSS</span>
+              <span class="boss-timer"></span>
+            </div>
+          </div>
           <div class="bar hp-bar">
             <div class="bar-fill"></div>
             <span class="bar-label"></span>
@@ -62,7 +71,6 @@ export const TEMPLATE = `
             <span class="attack-cooldown"></span>
           </button>
         </div>
-        <button class="fight-boss-btn" type="button" hidden>FIGHT BOSS</button>
         <section class="player-panel foldable" data-feature="exp">
           <div class="player-level"></div>
           <div class="bar exp-bar">
@@ -172,7 +180,7 @@ function renderStageProgress(
     const progress = root.querySelector<HTMLElement>('.stage-progress');
     if (!progress) return;
     if (stages.mode === 'boss') {
-        progress.textContent = `BOSS — ${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
+        progress.textContent = `Time remaining — ${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
     } else if (stages.bossUnlocked) {
         progress.textContent = 'Boss ready!';
     } else {
@@ -192,7 +200,16 @@ export function render(root: HTMLElement, state: GameSnapshot): void {
 
     const name = root.querySelector<HTMLElement>('.enemy-name');
     if (name) name.textContent = enemy.name;
+    const inBoss = stages.mode === 'boss';
     root.querySelector('.enemy-panel')?.classList.toggle('boss', state.combat.isBoss);
+    const bossIndicator = root.querySelector<HTMLElement>('.boss-indicator');
+    if (bossIndicator) {
+        bossIndicator.style.display = inBoss ? 'flex' : 'none';
+        if (inBoss) {
+            const timer = bossIndicator.querySelector<HTMLElement>('.boss-timer');
+            if (timer) timer.textContent = `${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
+        }
+    }
     setBar(root, '.hp-bar', enemy.hp, enemy.maxHp, `${enemy.hp} / ${enemy.maxHp} HP`);
 
     const autoAttackButton = root.querySelector<HTMLButtonElement>('.auto-attack-btn');
