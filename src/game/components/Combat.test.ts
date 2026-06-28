@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import type { Enemy } from '../content/enemies.ts';
 import { STAGES } from '../content/stages.ts';
 import { attackDamage } from '../systems/combatStats.ts';
+import { attackMultiplier } from '../systems/reborn.ts';
 import { expectEventOrder, makeWorld, type WorldSeed } from '../testing/makeWorld.ts';
 import { Combat } from './Combat.ts';
 import { DEFAULT_PLAYER_ATTACK } from './Player.ts';
@@ -179,6 +180,42 @@ describe('Combat', () => {
         const startHp = combat.getState().enemy.hp;
         combat.onTick(10_000);
         expect(combat.getState().enemy.hp).toBe(startHp);
+    });
+
+    test('the reborn attack multiplier scales the damage dealt', () => {
+        const { world, combat } = setup({ reborn: { upgrades: { attackMultiplier: 2 } } });
+        world.runCommand('attack', {});
+        const expected = Math.floor(attackDamage(DEFAULT_PLAYER_ATTACK, 0) * attackMultiplier(2));
+        expect(combat.getState().enemy.hp).toBe(TEST_ENEMY.maxHp - expected);
+    });
+
+    // The freshly spawned enemy after a kill comes from STAGES[0] (rng: () => 0
+    // picks its first template), so its full HP is derived from shipping content.
+    const NEXT_ENEMY_MAX_HP = FIRST_STAGE.enemies[0].maxHp;
+    const SMALL_ENEMY: Enemy = {
+        name: 'Glass Dummy',
+        hp: 10,
+        maxHp: 10,
+        expReward: 1,
+        drops: [],
+    };
+
+    test('with cleave on, overkill carries into the next enemy', () => {
+        const { combat } = setup({
+            combat: { enemy: SMALL_ENEMY },
+            reborn: { upgrades: { cleave: true } },
+        });
+        const overkill = 5;
+        combat.damageEnemy(SMALL_ENEMY.hp + overkill);
+        // The next enemy spawned at full HP, then took the carried-over overkill.
+        expect(combat.getState().enemy.maxHp).toBe(NEXT_ENEMY_MAX_HP);
+        expect(combat.getState().enemy.hp).toBe(NEXT_ENEMY_MAX_HP - overkill);
+    });
+
+    test('with cleave off, overkill is discarded', () => {
+        const { combat } = setup({ combat: { enemy: SMALL_ENEMY } });
+        combat.damageEnemy(SMALL_ENEMY.hp + 5);
+        expect(combat.getState().enemy.hp).toBe(NEXT_ENEMY_MAX_HP); // full HP, no carry-through
     });
 
     test('save/load round-trips the enemy, boss flag, and auto-attack toggle', () => {

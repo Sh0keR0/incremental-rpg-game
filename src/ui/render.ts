@@ -3,6 +3,7 @@ import {
     getNavigableStageId,
     getStageById,
     type GameSnapshot,
+    type RebornState,
     type StagesState,
     type StatName,
     type UnlocksState,
@@ -66,6 +67,15 @@ export const TEMPLATE = `
       <h3 class="inventory-title">Inventory</h3>
       <div id="inventory" class="inventory-grid">
 <!--        ${Array.from({ length: 25 }, (_, index) => `<div data-inventory-slot="${index}" class="inventory-slot"></div>`).join('')}-->
+      </div>
+    </section>
+    <section class="reborn-panel foldable" data-feature="reborn">
+      <h3 class="reborn-title">Reborn <span class="remembrance-points"></span></h3>
+      <button class="reborn-btn" type="button">Reborn</button>
+      <div class="reborn-upgrades">
+        <button class="reborn-upgrade-btn" data-upgrade="expMultiplier" type="button"></button>
+        <button class="reborn-upgrade-btn" data-upgrade="attackMultiplier" type="button"></button>
+        <button class="reborn-upgrade-btn" data-upgrade="cleave" type="button"></button>
       </div>
     </section>
     <div class="fx-layer" aria-hidden="true"></div>
@@ -199,6 +209,57 @@ export function renderStats(root: HTMLElement, state: GameSnapshot): void {
         const button = row.querySelector<HTMLButtonElement>('.stat-allocate-btn');
         if (button) button.disabled = unspentPoints <= 0;
     }
+}
+
+export function renderReborn(root: HTMLElement, reborn: RebornState): void {
+    const points = root.querySelector<HTMLElement>('.remembrance-points');
+    if (points) points.textContent = `${reborn.remembrancePoints} RP`;
+
+    const rebornButton = root.querySelector<HTMLButtonElement>('.reborn-btn');
+    if (rebornButton) {
+        rebornButton.disabled = !reborn.canReborn;
+        rebornButton.textContent = reborn.canReborn
+            ? `Reborn (+${reborn.pendingPoints} RP)`
+            : 'Reborn';
+    }
+
+    setUpgradeButton(
+        root,
+        'expMultiplier',
+        `EXP ×${reborn.expMultiplier.toFixed(2)} — ${reborn.expUpgradeCost} RP`,
+        reborn.remembrancePoints >= reborn.expUpgradeCost,
+        false,
+    );
+    setUpgradeButton(
+        root,
+        'attackMultiplier',
+        `Attack ×${reborn.attackMultiplier.toFixed(2)} — ${reborn.attackUpgradeCost} RP`,
+        reborn.remembrancePoints >= reborn.attackUpgradeCost,
+        false,
+    );
+    const cleaveOwned = reborn.upgrades.cleave;
+    setUpgradeButton(
+        root,
+        'cleave',
+        cleaveOwned ? 'Cleave — owned' : `Cleave — ${reborn.cleaveCost} RP`,
+        reborn.remembrancePoints >= reborn.cleaveCost,
+        cleaveOwned,
+    );
+}
+
+function setUpgradeButton(
+    root: HTMLElement,
+    upgrade: string,
+    label: string,
+    affordable: boolean,
+    owned: boolean,
+): void {
+    const button = root.querySelector<HTMLButtonElement>(
+        `.reborn-upgrade-btn[data-upgrade="${upgrade}"]`,
+    );
+    if (!button) return;
+    button.textContent = label;
+    button.disabled = owned || !affordable;
 }
 
 export function updateInventoryUI(inventoryData: InventoryData): void {

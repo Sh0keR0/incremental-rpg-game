@@ -1,5 +1,6 @@
 import { applyExp, expForLevel } from '../systems/progression.ts';
 import type { GameContext, IGameComponent } from '../types.ts';
+import { Reborn } from './Reborn.ts';
 
 export const DEFAULT_PLAYER_ATTACK = 5;
 
@@ -22,11 +23,26 @@ export class Player implements IGameComponent {
 
     initialize(gameContext: GameContext): void {
         this.gameContext = gameContext;
-        gameContext.on('enemyDefeated', ({ expReward }) => this.gainExp(expReward));
+        gameContext.on('enemyDefeated', ({ expReward }) => this.gainExp(this.scaleExp(expReward)));
+        gameContext.on('rebornCompleted', () => this.reset());
     }
 
     getAttack(): number {
         return this.state.attack;
+    }
+
+    private scaleExp(expReward: number): number {
+        const multiplier = this.gameContext.getGameComponent(Reborn).getExpMultiplier();
+        return Math.floor(expReward * multiplier);
+    }
+
+    private reset(): void {
+        this.state = {
+            level: 1,
+            exp: 0,
+            expToNext: expForLevel(1),
+            attack: DEFAULT_PLAYER_ATTACK,
+        };
     }
 
     gainExp(amount: number): void {

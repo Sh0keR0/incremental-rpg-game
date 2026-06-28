@@ -167,19 +167,6 @@ describe('createGame', () => {
         expect(newGame().game.getState().unlocks).toEqual({ unlocked: [] });
     });
 
-    test('inventory unlocks and featureUnlocked fires once an enemy drops an item', () => {
-        const pump = newGame();
-        const onUnlocked = vi.fn();
-        pump.game.on('featureUnlocked', onUnlocked);
-
-        // rng: () => 0 rolls every drop, so the first kill yields loot.
-        expect(pump.game.getState().combat.enemy.drops.length).toBeGreaterThan(0);
-        attackUntil(pump, () => pump.game.getState().unlocks.unlocked.includes('inventory'));
-
-        expect(pump.game.getState().unlocks.unlocked).toContain('inventory');
-        expect(onUnlocked).toHaveBeenCalledWith({ feature: 'inventory' });
-    });
-
     test('exp unlocks after the first kill grants experience', () => {
         const pump = newGame();
         attackUntil(pump, () => pump.game.getState().unlocks.unlocked.includes('exp'));

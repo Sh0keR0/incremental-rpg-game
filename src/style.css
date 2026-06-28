@@ -224,6 +224,73 @@ body {
   opacity: 0.85;
 }
 
+.reborn-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: left;
+  opacity: 0.85;
+}
+
+.remembrance-points {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.reborn-btn {
+  width: 100%;
+  padding: 0.7rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  background: #8e2de2;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.05s ease, filter 0.15s ease;
+}
+
+.reborn-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.reborn-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.reborn-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.reborn-upgrades {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.reborn-upgrade-btn {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, filter 0.15s ease;
+}
+
+.reborn-upgrade-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.reborn-upgrade-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .inventory-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

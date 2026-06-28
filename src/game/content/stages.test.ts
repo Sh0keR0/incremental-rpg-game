@@ -28,7 +28,8 @@ describe('stage lookups', () => {
 });
 
 describe('getNavigableStageId', () => {
-    const [first, second, third] = STAGES;
+    const [first, second] = STAGES;
+    const last = STAGES[STAGES.length - 1];
     const allUnlocked = STAGES.map((stage) => stage.id);
 
     test('returns the next stage when it is unlocked', () => {
@@ -45,7 +46,7 @@ describe('getNavigableStageId', () => {
 
     test('returns undefined past the ends of the stage list', () => {
         expect(getNavigableStageId(first.id, allUnlocked, -1)).toBeUndefined();
-        expect(getNavigableStageId(third.id, allUnlocked, 1)).toBeUndefined();
+        expect(getNavigableStageId(last.id, allUnlocked, 1)).toBeUndefined();
     });
 
     test('returns undefined for an unknown current stage', () => {

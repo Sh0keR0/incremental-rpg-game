@@ -44,6 +44,15 @@ export class Stages implements IGameComponent {
         gameContext.handle('selectStage', ({ stageId }) => {
             this.selectStage(stageId);
         });
+        gameContext.on('rebornCompleted', () => this.reset());
+    }
+
+    private reset(): void {
+        this.currentStageId = STAGES[0].id;
+        this.unlockedStageIds = [STAGES[0].id];
+        this.progressByStageId = {};
+        this.mode = 'normal';
+        this.bossTimeRemainingMs = 0;
     }
 
     onTick(dt: number): void {

@@ -2,6 +2,7 @@ import { Combat } from '../components/Combat.ts';
 import Inventory from '../components/Inventory.ts';
 import { Player, type PlayerState } from '../components/Player.ts';
 import { PlayerStats, type PlayerStatsState } from '../components/PlayerStats.ts';
+import { Reborn, type RebornUpgrades } from '../components/Reborn.ts';
 import { Stages } from '../components/Stages.ts';
 import { Unlocks } from '../components/Unlocks.ts';
 import { type Enemy, instantiateEnemy } from '../content/enemies.ts';
@@ -43,6 +44,13 @@ export interface WorldSeed {
     // Stage progress. `bossUnlocked` makes the current stage's boss fightable, so
     // a `fightBoss` command really drives Stages to emit `bossStarted`.
     stages?: { currentStageId?: string; bossUnlocked?: boolean };
+    // Reborn meta-progress: grant remembrance points or pre-own upgrades (e.g.
+    // cleave) so tests can exercise the multipliers without first grinding bosses.
+    reborn?: {
+        remembrancePoints?: number;
+        highestBossTierThisRun?: number;
+        upgrades?: Partial<RebornUpgrades>;
+    };
 }
 
 export interface WorldOptions {
@@ -86,6 +94,7 @@ const DEFAULT_COMPONENTS: ComponentClass[] = [
     Inventory,
     PlayerStats,
     Unlocks,
+    Reborn,
 ];
 
 function playerSeed(overrides: Partial<PlayerState> = {}): PlayerState {
@@ -141,6 +150,7 @@ export function makeWorld(options: WorldOptions = {}): World {
     if (seed.stats) core.getGameComponent(PlayerStats).load(statsSeed(seed.stats));
     if (seed.combat) core.getGameComponent(Combat).load(combatSeed(seed.combat));
     if (seed.stages) core.getGameComponent(Stages).load(stagesSeed(seed.stages));
+    if (seed.reborn) core.getGameComponent(Reborn).load(seed.reborn);
 
     const probe = core.getGameComponent(WorldProbe);
 

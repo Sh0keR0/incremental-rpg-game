@@ -1,11 +1,12 @@
 import { type CombatState, Combat } from './components/Combat.ts';
 import { type PlayerState, Player } from './components/Player.ts';
 import { type PlayerStatsState, PlayerStats } from './components/PlayerStats.ts';
+import { type RebornState, Reborn } from './components/Reborn.ts';
 import { type StagesState, Stages } from './components/Stages.ts';
 import { GameCore, type GameCoreOptions } from './GameCore.ts';
 import { parseSave, serializeSave } from './persistence/saveData.ts';
 import { createLocalStorageAdapter, type SaveStorage } from './persistence/storage.ts';
-import type { GameEventMap, GameEventName, StatName } from './types.ts';
+import type { GameEventMap, GameEventName, RebornUpgradeKey, StatName } from './types.ts';
 import Inventory, { type InventoryData } from './components/Inventory.ts';
 import { type UnlocksState, Unlocks } from './components/Unlocks.ts';
 
@@ -20,6 +21,7 @@ export interface GameSnapshot {
     stats: PlayerStatsState;
     stages: StagesState;
     unlocks: UnlocksState;
+    reborn: RebornState;
 }
 
 export interface Game {
@@ -35,6 +37,8 @@ export interface Game {
         allocateStat(statName: StatName): void;
         fightBoss(): void;
         selectStage(stageId: string): void;
+        reborn(): void;
+        buyRebornUpgrade(upgrade: RebornUpgradeKey): void;
     };
 
     start(): void;
@@ -57,7 +61,7 @@ export function createGame(options: GameOptions = {}): Game {
     const now = coreOptions.now ?? (() => performance.now());
     const core = new GameCore({
         ...coreOptions,
-        components: [Player, Stages, Combat, Inventory, PlayerStats, Unlocks],
+        components: [Player, Stages, Combat, Inventory, PlayerStats, Unlocks, Reborn],
     });
 
     const getState = (): GameSnapshot => ({
@@ -67,6 +71,7 @@ export function createGame(options: GameOptions = {}): Game {
         stats: core.getGameComponent(PlayerStats).getState(),
         stages: core.getGameComponent(Stages).getState(),
         unlocks: core.getGameComponent(Unlocks).getState(),
+        reborn: core.getGameComponent(Reborn).getState(),
     });
 
     let gameReset = false;
@@ -94,6 +99,12 @@ export function createGame(options: GameOptions = {}): Game {
             },
             selectStage(stageId: string) {
                 core.enqueueCommand('selectStage', { stageId });
+            },
+            reborn() {
+                core.enqueueCommand('reborn', {});
+            },
+            buyRebornUpgrade(upgrade: RebornUpgradeKey) {
+                core.enqueueCommand('buyRebornUpgrade', { upgrade });
             },
         },
         start() {

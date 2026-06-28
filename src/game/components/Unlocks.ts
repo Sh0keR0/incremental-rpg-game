@@ -1,6 +1,6 @@
 import type { GameContext, GameEventName, IGameComponent } from '../types.ts';
 
-export type FeatureKey = 'inventory' | 'exp' | 'stats' | 'stage' | 'autoAttack';
+export type FeatureKey = 'inventory' | 'exp' | 'stats' | 'stage' | 'autoAttack' | 'reborn';
 
 export interface UnlocksState {
     unlocked: FeatureKey[];
@@ -22,6 +22,7 @@ const UNLOCK_RULES: UnlockRule[] = [
     { feature: 'inventory', event: 'inventoryUpdated' },
     { feature: 'stage', event: 'bossUnlocked' },
     { feature: 'autoAttack', event: 'bossDefeated' },
+    { feature: 'reborn', event: 'rebornAvailable' },
 ];
 
 export class Unlocks implements IGameComponent {

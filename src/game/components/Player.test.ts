@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { expForLevel } from '../systems/progression.ts';
+import { expMultiplier } from '../systems/reborn.ts';
 import { makeTestContext } from '../testing/makeTestContext.ts';
+import { makeWorld } from '../testing/makeWorld.ts';
 import { DEFAULT_PLAYER_ATTACK, Player } from './Player.ts';
 
 function makePlayer() {
@@ -61,5 +63,19 @@ describe('Player', () => {
         const restored = makePlayer().player;
         restored.load(saved);
         expect(restored.getState()).toEqual(player.getState());
+    });
+
+    test('the reborn exp multiplier scales exp gained from a kill', () => {
+        const upgradeLevel = 2;
+        const world = makeWorld({
+            seed: { reborn: { upgrades: { expMultiplier: upgradeLevel } } },
+        });
+        // A small reward so the multiplied exp stays under the level-1 threshold,
+        // isolating the scaling from a level-up.
+        const expReward = 4;
+        world.emit('enemyDefeated', { name: 'Dummy', expReward, drops: [], isBoss: false });
+        expect(world.getComponent(Player).getState().exp).toBe(
+            Math.floor(expReward * expMultiplier(upgradeLevel)),
+        );
     });
 });

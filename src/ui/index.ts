@@ -1,5 +1,18 @@
-import { getNavigableStageId, getStageById, type Game, type StatName } from '../game/index.ts';
-import { render, renderStats, revealFeature, TEMPLATE, updateInventoryUI } from './render.ts';
+import {
+    getNavigableStageId,
+    getStageById,
+    type Game,
+    type RebornUpgradeKey,
+    type StatName,
+} from '../game/index.ts';
+import {
+    render,
+    renderReborn,
+    renderStats,
+    revealFeature,
+    TEMPLATE,
+    updateInventoryUI,
+} from './render.ts';
 
 const AUTOSAVE_INTERVAL_MS = 10_000;
 
@@ -41,6 +54,17 @@ export function mountUI(game: Game, root: HTMLElement): void {
         if (target) game.actions.selectStage(target);
     });
 
+    root.querySelector<HTMLButtonElement>('.reborn-btn')?.addEventListener('click', () => {
+        if (!confirm('Reborn? This resets your level, stats, and stage progress.')) return;
+        game.actions.reborn();
+    });
+    for (const button of view.querySelectorAll<HTMLButtonElement>('.reborn-upgrade-btn')) {
+        const upgrade = button.dataset.upgrade as RebornUpgradeKey | undefined;
+        if (upgrade) {
+            button.addEventListener('click', () => game.actions.buyRebornUpgrade(upgrade));
+        }
+    }
+
     for (const button of view.querySelectorAll<HTMLButtonElement>('.stat-allocate-btn')) {
         const statName = button.closest<HTMLElement>('.stat-row')?.dataset.stat as
             | StatName
@@ -53,6 +77,7 @@ export function mountUI(game: Game, root: HTMLElement): void {
     game.subscribe((state) => {
         render(view, state);
         renderStats(view, state);
+        renderReborn(view, state.reborn);
     });
     game.on('attacked', (event) => floater(fxLayer, `-${event.damage}`, 'damage'));
     game.on('expGained', (event) => floater(fxLayer, `+${event.amount} EXP`, 'exp'));
@@ -68,10 +93,17 @@ export function mountUI(game: Game, root: HTMLElement): void {
             'levelup',
         ),
     );
+    game.on('rebornCompleted', (event) =>
+        floater(fxLayer, `Reborn! +${event.pointsAwarded} RP`, 'levelup'),
+    );
+    game.on('rebornUpgradePurchased', (event) =>
+        floater(fxLayer, `${event.upgrade} → ${event.level}`, 'levelup'),
+    );
     game.load();
     const initialState = game.getState();
     render(view, initialState);
     renderStats(view, initialState);
+    renderReborn(view, initialState.reborn);
     updateInventoryUI(initialState.inventory);
 
     setInterval(() => game.save(), AUTOSAVE_INTERVAL_MS);

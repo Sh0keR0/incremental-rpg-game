@@ -50,6 +50,17 @@ export const STAGES: readonly StageDefinition[] = [
         boss: { name: 'Lich King', maxHp: 600, expReward: 320, drops: [] },
         bossTimeLimitMs: 40000,
     },
+    {
+        id: 'abyss',
+        name: 'Sunless Abyss',
+        enemies: [
+            { name: 'Void Crawler', maxHp: 140, expReward: 56, drops: [] },
+            { name: 'Abyssal Horror', maxHp: 170, expReward: 68, drops: [] },
+        ],
+        killsToUnlockBoss: 10,
+        boss: { name: 'The Drowned God', maxHp: 1100, expReward: 600, drops: [] },
+        bossTimeLimitMs: 45000,
+    },
 ];
 
 export function getStageById(id: string): StageDefinition | undefined {

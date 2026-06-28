@@ -20,7 +20,13 @@ export class PlayerStats implements IGameComponent {
     initialize(gameContext: GameContext): void {
         this.gameContext = gameContext;
         this.gameContext.on('leveledUp', () => this.awardPoints(STAT_POINTS_PER_LEVEL));
+        this.gameContext.on('rebornCompleted', () => this.reset());
         this.gameContext.handle('allocateStat', ({ statName }) => this.allocateStat(statName));
+    }
+
+    private reset(): void {
+        this.state = defaultState();
+        this.emitStatsChanged();
     }
 
     getStat(statName: StatName): number {

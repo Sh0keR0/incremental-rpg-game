@@ -4,6 +4,8 @@ import type { FeatureKey } from './components/Unlocks.ts';
 
 export type StatName = 'strength' | 'agility' | 'endurance';
 
+export type RebornUpgradeKey = 'expMultiplier' | 'attackMultiplier' | 'cleave';
+
 export interface GameEventMap {
     attacked: { damage: number; enemyHp: number; enemyName: string };
     enemyDefeated: { name: string; expReward: number; drops: DroppableItem[]; isBoss: boolean };
@@ -21,6 +23,10 @@ export interface GameEventMap {
     bossDefeated: { stageId: string };
     stageUnlocked: { stageId: string };
     stageSelected: { stageId: string };
+    // Fires once, the first time the unlock tier is reached — drives the reveal.
+    rebornAvailable: Record<string, never>;
+    rebornCompleted: { pointsAwarded: number; total: number };
+    rebornUpgradePurchased: { upgrade: RebornUpgradeKey; level: number };
 }
 
 export type GameEventName = keyof GameEventMap;
@@ -31,6 +37,8 @@ export interface GameCommandMap {
     allocateStat: { statName: StatName };
     fightBoss: Record<string, never>;
     selectStage: { stageId: string };
+    reborn: Record<string, never>;
+    buyRebornUpgrade: { upgrade: RebornUpgradeKey };
 }
 
 export type GameCommandName = keyof GameCommandMap;
