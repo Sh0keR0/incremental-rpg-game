@@ -54,6 +54,10 @@ export interface Game {
     clearSave(): void;
 
     resetGame(): void;
+
+    exportSave(): string;
+
+    importSave(raw: string): boolean;
 }
 
 export function createGame(options: GameOptions = {}): Game {
@@ -135,6 +139,16 @@ export function createGame(options: GameOptions = {}): Game {
             gameReset = true;
             this.clearSave();
             location.reload();
+        },
+        exportSave() {
+            return serializeSave(core.save(), now());
+        },
+        importSave(raw: string) {
+            const data = parseSave(raw);
+            if (!data) return false;
+            storage.write(raw);
+            core.load(data);
+            return true;
         },
     };
 }

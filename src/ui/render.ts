@@ -12,74 +12,129 @@ import type { InventoryData } from '../game/components/Inventory.ts';
 
 export const TEMPLATE = `
   <div class="game">
-    <section class="stage-panel foldable" data-feature="stage">
-      <div class="stage-selector">
-        <button class="stage-arrow stage-prev" type="button" aria-label="Previous stage">‹</button>
-        <h2 class="stage-name"></h2>
-        <button class="stage-arrow stage-next" type="button" aria-label="Next stage">›</button>
-      </div>
-      <div class="stage-progress"></div>
-    </section>
-    <section class="enemy-panel">
-      <h2 class="enemy-name"></h2>
-      <div class="bar hp-bar">
-        <div class="bar-fill"></div>
-        <span class="bar-label"></span>
-      </div>
-    </section>
-    <button class="attack-btn" type="button">
-      <span class="attack-label">Attack</span>
-    </button>
-    <button class="auto-attack-btn foldable" data-feature="autoAttack" type="button" aria-pressed="false">
-      <span class="auto-attack-label">Auto-Attack: Off</span>
-      <span class="attack-cooldown"></span>
-    </button>
-    <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
-    <button class="reset-btn" type="button">Reset</button>
-    <section class="player-panel foldable" data-feature="exp">
-      <div class="player-level"></div>
-      <div class="bar exp-bar">
-        <div class="bar-fill"></div>
-        <span class="bar-label"></span>
-      </div>
-    </section>
-    <section class="stats-panel foldable" data-feature="stats">
-      <h3 class="stats-title">Stats <span class="stats-points"></span></h3>
-      <div class="stats-list">
-        <div class="stat-row" data-stat="strength">
-          <span class="stat-name">Strength</span>
-          <span class="stat-value">0</span>
-          <button class="stat-allocate-btn" type="button">+</button>
+    <nav class="sidebar" role="tablist" aria-label="Game sections">
+      <button class="nav-item active" type="button" role="tab" aria-selected="true" data-tab="combat">
+        <span class="nav-label">Combat</span>
+      </button>
+      <button class="nav-item foldable" type="button" role="tab" aria-selected="false" data-tab="stats" data-feature="stats">
+        <span class="nav-label">Stats</span>
+      </button>
+      <button class="nav-item foldable" type="button" role="tab" aria-selected="false" data-tab="inventory" data-feature="inventory">
+        <span class="nav-icon">▦</span>
+        <span class="nav-label">Inventory</span>
+      </button>
+      <button class="nav-item foldable" type="button" role="tab" aria-selected="false" data-tab="reborn" data-feature="reborn">
+        <span class="nav-icon">✦</span>
+        <span class="nav-label">Reborn</span>
+      </button>
+      <button class="nav-item" type="button" role="tab" aria-selected="false" data-tab="settings">
+        <span class="nav-icon">⚙</span>
+        <span class="nav-label">Settings</span>
+      </button>
+    </nav>
+
+    <main class="content">
+      <div class="tab-panel active" role="tabpanel" data-panel="combat">
+        <section class="stage-panel foldable" data-feature="stage">
+          <div class="stage-selector">
+            <button class="stage-arrow stage-prev" type="button" aria-label="Previous stage">‹</button>
+            <h2 class="stage-name"></h2>
+            <button class="stage-arrow stage-next" type="button" aria-label="Next stage">›</button>
+          </div>
+          <div class="stage-footer">
+            <div class="stage-progress"></div>
+            <button class="fight-boss-btn" type="button" hidden>Fight Boss</button>
+          </div>
+        </section>
+        <section class="enemy-panel">
+          <p class="enemy-label">CURRENT ENEMY</p>
+          <div class="enemy-name-row">
+            <h2 class="enemy-name"></h2>
+            <div class="boss-indicator" hidden>
+              <span class="boss-tag">BOSS</span>
+            </div>
+          </div>
+          <div class="bar hp-bar">
+            <div class="bar-fill"></div>
+            <span class="bar-label"></span>
+          </div>
+        </section>
+        <div class="combat-actions">
+          <button class="attack-btn" type="button">
+            <span class="attack-label">ATTACK</span>
+          </button>
+          <button class="auto-attack-btn foldable" data-feature="autoAttack" type="button" aria-pressed="false">
+            <span class="auto-attack-label">AUTO</span>
+            <span class="attack-cooldown"></span>
+          </button>
         </div>
-        <div class="stat-row" data-stat="agility">
-          <span class="stat-name">Agility</span>
-          <span class="stat-value">0</span>
-          <button class="stat-allocate-btn" type="button">+</button>
-        </div>
-        <div class="stat-row" data-stat="endurance">
-          <span class="stat-name">Endurance</span>
-          <span class="stat-value">0</span>
-          <button class="stat-allocate-btn" type="button">+</button>
-        </div>
+        <section class="player-panel foldable" data-feature="exp">
+          <div class="player-level"></div>
+          <div class="bar exp-bar">
+            <div class="bar-fill"></div>
+            <span class="bar-label"></span>
+          </div>
+        </section>
       </div>
-    </section>
-    <section class="inventory-panel foldable" data-feature="inventory">
-      <h3 class="inventory-title">Inventory</h3>
-      <div id="inventory" class="inventory-grid">
-<!--        ${Array.from({ length: 25 }, (_, index) => `<div data-inventory-slot="${index}" class="inventory-slot"></div>`).join('')}-->
+
+      <div class="tab-panel" role="tabpanel" data-panel="stats">
+        <section class="stats-panel">
+          <h3 class="stats-title">Stats <span class="stats-points"></span></h3>
+          <div class="stats-list">
+            <div class="stat-row" data-stat="strength">
+              <span class="stat-name">Strength</span>
+              <span class="stat-value">0</span>
+              <button class="stat-allocate-btn" type="button">+</button>
+            </div>
+            <div class="stat-row" data-stat="agility">
+              <span class="stat-name">Agility</span>
+              <span class="stat-value">0</span>
+              <button class="stat-allocate-btn" type="button">+</button>
+            </div>
+            <div class="stat-row" data-stat="endurance">
+              <span class="stat-name">Endurance</span>
+              <span class="stat-value">0</span>
+              <button class="stat-allocate-btn" type="button">+</button>
+            </div>
+          </div>
+        </section>
       </div>
-    </section>
-    <section class="reborn-panel foldable" data-feature="reborn">
-      <h3 class="reborn-title">Reborn <span class="remembrance-points"></span></h3>
-      <button class="reborn-btn" type="button">Reborn</button>
-      <div class="reborn-upgrades">
-        <button class="reborn-upgrade-btn" data-upgrade="expMultiplier" type="button"></button>
-        <button class="reborn-upgrade-btn" data-upgrade="attackMultiplier" type="button"></button>
-        <button class="reborn-upgrade-btn" data-upgrade="cleave" type="button"></button>
+
+      <div class="tab-panel" role="tabpanel" data-panel="inventory">
+        <section class="inventory-panel">
+          <h3 class="inventory-title">Inventory</h3>
+          <div id="inventory" class="inventory-grid"></div>
+        </section>
       </div>
-    </section>
+
+      <div class="tab-panel" role="tabpanel" data-panel="reborn">
+        <section class="reborn-panel">
+          <h3 class="reborn-title">Reborn <span class="remembrance-points"></span></h3>
+          <button class="reborn-btn" type="button">Reborn</button>
+          <div class="reborn-upgrades">
+            <button class="reborn-upgrade-btn" data-upgrade="expMultiplier" type="button"></button>
+            <button class="reborn-upgrade-btn" data-upgrade="attackMultiplier" type="button"></button>
+            <button class="reborn-upgrade-btn" data-upgrade="cleave" type="button"></button>
+          </div>
+        </section>
+      </div>
+    </main>
+
     <div class="fx-layer" aria-hidden="true"></div>
   </div>
+
+  <dialog class="settings-dialog" id="settings-dialog">
+    <h2 class="settings-title">Settings</h2>
+    <div class="settings-actions">
+      <button class="new-game-btn" type="button">New Game</button>
+      <button class="save-disk-btn" type="button">Save to File</button>
+      <label class="load-disk-label">
+        Load from File
+        <input class="load-disk-input" type="file" accept=".json">
+      </label>
+    </div>
+    <button class="dialog-close-btn" type="button">Close</button>
+  </dialog>
 `;
 
 function setBar(
@@ -122,7 +177,7 @@ function renderStageProgress(
     const progress = root.querySelector<HTMLElement>('.stage-progress');
     if (!progress) return;
     if (stages.mode === 'boss') {
-        progress.textContent = `BOSS — ${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
+        progress.textContent = `Time remaining — ${Math.ceil(stages.bossTimeRemainingMs / 1000)}s`;
     } else if (stages.bossUnlocked) {
         progress.textContent = 'Boss ready!';
     } else {
@@ -142,7 +197,12 @@ export function render(root: HTMLElement, state: GameSnapshot): void {
 
     const name = root.querySelector<HTMLElement>('.enemy-name');
     if (name) name.textContent = enemy.name;
+    const inBoss = stages.mode === 'boss';
     root.querySelector('.enemy-panel')?.classList.toggle('boss', state.combat.isBoss);
+    const bossIndicator = root.querySelector<HTMLElement>('.boss-indicator');
+    if (bossIndicator) {
+        bossIndicator.style.display = inBoss ? 'flex' : 'none';
+    }
     setBar(root, '.hp-bar', enemy.hp, enemy.maxHp, `${enemy.hp} / ${enemy.maxHp} HP`);
 
     const autoAttackButton = root.querySelector<HTMLButtonElement>('.auto-attack-btn');

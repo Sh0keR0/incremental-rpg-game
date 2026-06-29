@@ -1,10 +1,13 @@
 :root {
-  --bg: #1a1a2e;
-  --panel: #16213e;
+  --bg: #0d0d1a;
+  --panel: #13132a;
+  --surface: #1a1a35;
   --accent: #e94560;
   --hp: #e94560;
   --exp: #4ecca3;
+  --boss: #9b59b6;
   --text: #eaeaea;
+  --muted: #666680;
   color-scheme: dark;
 }
 
@@ -22,25 +25,100 @@ body {
   color: var(--text);
 }
 
+/* ── Layout ─────────────────────────────────────────────── */
+
 .game {
   position: relative;
-  width: min(420px, 90vw);
-  padding: 2rem;
+  display: flex;
+  flex-direction: row;
+  width: min(760px, 96vw);
+  min-height: 540px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+
+.sidebar {
+  width: 140px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
   background: var(--panel);
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 1.5rem 0;
+  gap: 0;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.9rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   text-align: center;
 }
+
+.nav-item:hover:not(:disabled) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-item.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(233, 69, 96, 0.08);
+}
+
+.nav-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.nav-label {
+  line-height: 1;
+}
+
+/* ── Content area ─────────────────────────────────────────── */
+
+.content {
+  flex: 1;
+  padding: 1.5rem 2rem;
+  overflow-y: auto;
+  max-width: 540px;
+  margin-left:auto;
+  margin-right: auto;
+}
+
+.tab-panel {
+  display: none;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.tab-panel.active {
+  display: flex;
+}
+
+/* ── Stage selector ─────────────────────────────────────── */
 
 .stage-selector {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .stage-arrow {
@@ -70,55 +148,86 @@ body {
 .stage-name {
   margin: 0;
   min-width: 8ch;
-  font-size: 1.1rem;
-  opacity: 0.9;
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+.stage-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
 }
 
 .stage-progress {
-  font-size: 0.85rem;
   font-weight: 600;
-  opacity: 0.85;
+}
+
+/* ── Enemy panel ─────────────────────────────────────────── */
+
+.enemy-panel {
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.enemy-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.enemy-name-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.enemy-name {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .enemy-panel.boss .enemy-name {
   color: var(--accent);
 }
 
-.fight-boss-btn {
-  padding: 0.7rem 1.5rem;
-  font-size: 1rem;
+.boss-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.boss-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+}
+
+.boss-timer {
+  font-size: 1.4rem;
   font-weight: 700;
-  color: var(--text);
-  background: #8e2de2;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.05s ease, filter 0.15s ease;
+  color: var(--accent);
+  min-width: 3ch;
 }
 
-.fight-boss-btn:hover {
-  filter: brightness(1.15);
-}
-
-.fight-boss-btn:active {
-  transform: scale(0.96);
-}
-
-.enemy-name {
-  margin: 0 0 0.75rem;
-  font-size: 1.5rem;
-}
-
-.player-level {
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-}
+/* ── Bars ─────────────────────────────────────────────────── */
 
 .bar {
   position: relative;
   height: 24px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
 
@@ -141,16 +250,143 @@ body {
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Combat actions ──────────────────────────────────────── */
+
+.combat-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.attack-btn {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  padding: 0.9rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: transparent;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.05s ease, background 0.15s ease;
+}
+
+.attack-btn:hover:not(:disabled) {
+  background: rgba(233, 69, 96, 0.1);
+}
+
+.attack-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.attack-btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.attack-label,
+.auto-attack-label {
+  position: relative;
+  z-index: 1;
+}
+
+.auto-attack-btn {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  padding: 0.9rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.05s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.auto-attack-btn:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.auto-attack-btn:active {
+  transform: scale(0.96);
+}
+
+.auto-attack-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(233, 69, 96, 0.08);
+}
+
+/* Shrinks from full to empty as cooldown ticks down */
+.attack-cooldown {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.fight-boss-btn {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--boss);
+  background: transparent;
+  border: 1px solid var(--boss);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.fight-boss-btn:hover {
+  background: rgba(155, 89, 182, 0.15);
+}
+
+.fight-boss-btn:active {
+  opacity: 0.8;
+}
+
+/* ── Player panel ─────────────────────────────────────────── */
+
+.player-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.player-level {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ── Stats panel ─────────────────────────────────────────── */
+
+.stats-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .stats-title {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  text-align: left;
   opacity: 0.85;
 }
 
@@ -170,13 +406,13 @@ body {
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 6px;
 }
 
 .stat-name {
   flex: 1;
-  text-align: left;
   font-size: 0.9rem;
   text-transform: capitalize;
 }
@@ -195,7 +431,7 @@ body {
   font-size: 1.1rem;
   font-weight: 700;
   line-height: 1;
-  color: var(--text);
+  color: var(--bg);
   background: var(--exp);
   border: none;
   border-radius: 6px;
@@ -216,42 +452,77 @@ body {
   cursor: default;
 }
 
+/* ── Inventory panel ──────────────────────────────────────── */
+
+.inventory-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .inventory-title {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  text-align: left;
   opacity: 0.85;
 }
 
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+}
+
+.inventory-slot {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 1.3rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.inventory-slot:hover {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Reborn panel ─────────────────────────────────────────── */
+
+.reborn-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .reborn-title {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  text-align: left;
   opacity: 0.85;
 }
 
 .remembrance-points {
-  color: var(--accent);
+  color: var(--boss);
   font-size: 0.85rem;
 }
 
 .reborn-btn {
-  width: 100%;
   padding: 0.7rem 1.5rem;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--text);
-  background: #8e2de2;
-  border: none;
+  background: transparent;
+  border: 2px solid var(--boss);
   border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.05s ease, filter 0.15s ease;
+  transition: transform 0.05s ease, background 0.15s ease;
 }
 
 .reborn-btn:hover:not(:disabled) {
-  filter: brightness(1.15);
+  background: rgba(155, 89, 182, 0.1);
 }
 
 .reborn-btn:active:not(:disabled) {
@@ -267,23 +538,24 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-top: 0.75rem;
 }
 
 .reborn-upgrade-btn {
   padding: 0.6rem 0.75rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   cursor: pointer;
-  transition: border-color 0.15s ease, filter 0.15s ease;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .reborn-upgrade-btn:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--boss);
+  background: rgba(155, 89, 182, 0.08);
 }
 
 .reborn-upgrade-btn:disabled {
@@ -291,101 +563,100 @@ body {
   cursor: default;
 }
 
-.inventory-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.5rem;
+/* ── Settings dialog ──────────────────────────────────────── */
+
+.settings-dialog {
+  padding: 2rem;
+  min-width: 280px;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: var(--text);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 }
 
-.inventory-slot {
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.05);
+.settings-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.settings-title {
+  margin: 0 0 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+}
+
+.settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.new-game-btn,
+.save-disk-btn,
+.load-disk-label {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  font-size: 1.3rem;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.inventory-slot:hover {
-  border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.08);
+.new-game-btn:hover,
+.save-disk-btn:hover,
+.load-disk-label:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.attack-btn {
-  position: relative;
-  overflow: hidden;
-  padding: 0.9rem 1.5rem;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--text);
-  background: var(--accent);
-  border: none;
+.new-game-btn {
+  color: var(--accent);
+  border-color: rgba(233, 69, 96, 0.3);
+}
+
+.new-game-btn:hover {
+  border-color: var(--accent);
+  background: rgba(233, 69, 96, 0.08);
+}
+
+.load-disk-input {
+  display: none;
+}
+
+.dialog-close-btn {
+  width: 100%;
+  padding: 0.6rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.05s ease, filter 0.15s ease;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.attack-btn:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.attack-btn:active:not(:disabled) {
-  transform: scale(0.96);
-}
-
-.attack-btn:disabled {
-  cursor: progress;
-}
-
-.attack-label,
-.auto-attack-label {
-  position: relative;
-  z-index: 1;
-}
-
-.auto-attack-btn {
-  position: relative;
-  overflow: hidden;
-  padding: 0.7rem 1.2rem;
-  font-size: 1rem;
-  font-weight: 700;
+.dialog-close-btn:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.05s ease, filter 0.15s ease, border-color 0.15s ease;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.auto-attack-btn:hover {
-  filter: brightness(1.1);
-}
-
-.auto-attack-btn:active {
-  transform: scale(0.96);
-}
-
-.auto-attack-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-/* Shrinks from full to empty as the cooldown ticks down, so the button visibly
-   "recharges" — agility shortens the time it takes. */
-.attack-cooldown {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 0;
-  background: rgba(0, 0, 0, 0.35);
-  pointer-events: none;
-}
+/* ── FX layer ─────────────────────────────────────────────── */
 
 .fx-layer {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
@@ -426,12 +697,15 @@ body {
   }
 }
 
+/* ── Progressive unlock ───────────────────────────────────── */
+
 .foldable:not(.revealed) {
   display: none;
 }
 
-.foldable.revealed {
-  animation: fold-in 0.3s ease-out;
+
+.nav-item[data-tab="settings"] {
+  margin-top: auto;
 }
 
 @keyframes fold-in {
@@ -442,5 +716,64 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* ── Mobile: bottom tab bar ───────────────────────────────── */
+
+@media (max-width: 640px) {
+  body {
+    display: block;
+  }
+
+  .game {
+    flex-direction: column;
+    width: 100%;
+    min-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .sidebar {
+    order: 2;
+    width: 100%;
+    min-height: auto;
+    height: 64px;
+    flex-direction: row;
+    padding: 0;
+    border-right: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    justify-content: space-around;
+    align-items: stretch;
+  }
+
+  .nav-item {
+    flex: 1;
+    border-left: none;
+    border-top: 3px solid transparent;
+    padding: 0.5rem 0.25rem;
+    justify-content: center;
+  }
+
+  .nav-item.active {
+    border-left-color: transparent;
+    border-top-color: var(--accent);
+    background: rgba(233, 69, 96, 0.06);
+  }
+
+  .nav-label {
+    font-size: 0.65rem;
+  }
+
+  .nav-icon {
+    font-size: 1rem;
+  }
+
+  .content {
+    order: 1;
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    max-width: 100%;
   }
 }
